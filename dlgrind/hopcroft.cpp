@@ -1,4 +1,4 @@
-#include <dlgrind/schema.capnp.h>
+#include <dlgrind/hopcroft.h>
 
 #include <iostream>
 #include <unordered_set>
