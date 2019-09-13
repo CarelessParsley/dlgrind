@@ -23,6 +23,11 @@ uint64_t checked_mul(uint64_t a, uint64_t b) {
   return x;
 }
 
+frames_t sub_floor_zero(frames_t a, frames_t b) {
+  if (b > a) return 0;
+  return a - b;
+}
+
 // Return the index of an enum in magic_enum::enum_values
 template <typename T>
 size_t enum_index(T val) {
@@ -38,18 +43,26 @@ struct AdventurerState {
   AfterAction afterAction_;
   uint8_t uiHiddenFramesLeft_;
   uint16_t sp_[3];
+  uint16_t buffFramesLeft_;
 
   bool operator==(const AdventurerState& other) const {
     return afterAction_ == other.afterAction_ &&
            uiHiddenFramesLeft_ == other.uiHiddenFramesLeft_ &&
            sp_[0] == other.sp_[0] &&
            sp_[1] == other.sp_[1] &&
-           sp_[2] == other.sp_[2];
+           sp_[2] == other.sp_[2] &&
+           buffFramesLeft_ == other.buffFramesLeft_;
   }
 };
 
 inline uint KJ_HASHCODE(const AdventurerState& st) {
-  return kj::hashCode(static_cast<uint>(st.afterAction_), st.uiHiddenFramesLeft_, st.sp_[0], st.sp_[1], st.sp_[2]);
+  return kj::hashCode(
+      static_cast<uint>(st.afterAction_),
+      st.uiHiddenFramesLeft_,
+      st.sp_[0],
+      st.sp_[1],
+      st.sp_[2],
+      st.buffFramesLeft_);
 }
 
 struct AdventurerStateHasher {
@@ -90,7 +103,8 @@ public:
       AdventurerState init_st =  {
         .afterAction_ = AfterAction::AFTER_NOTHING,
         .uiHiddenFramesLeft_ = 0,
-        .sp_ = {0, 0, 0}
+        .sp_ = {0, 0, 0},
+        .buffFramesLeft_ = 0
       };
       std::vector<AdventurerState> todo{init_st};
       inverse_map[init_st];
@@ -274,11 +288,9 @@ private:
     auto after = prev;
 
     // Wait for recovery to see if we can legally skill
-    after.uiHiddenFramesLeft_ = std::max(
-        0,
-        static_cast<int32_t>(prev.uiHiddenFramesLeft_) -
-        static_cast<int32_t>(prevRecoveryFrames(prev.afterAction_, a))
-    );
+    frames_t prevFrames = prevRecoveryFrames(prev.afterAction_, a);
+    after.uiHiddenFramesLeft_ = sub_floor_zero(prev.uiHiddenFramesLeft_, prevFrames);
+    after.buffFramesLeft_ = sub_floor_zero(prev.buffFramesLeft_, prevFrames);
 
     // Check if we can legally skill, and
     // apply effects of skill if so.
@@ -326,11 +338,9 @@ private:
     }
 
     // Account for startup cost in UI
-    after.uiHiddenFramesLeft_ = std::max(
-        0,
-        static_cast<int32_t>(after.uiHiddenFramesLeft_) -
-        static_cast<int32_t>(afterStartupFrames(prev.afterAction_, a, after.afterAction_))
-    );
+    frames_t afterFrames = afterStartupFrames(prev.afterAction_, a, after.afterAction_);
+    after.uiHiddenFramesLeft_ = sub_floor_zero(after.uiHiddenFramesLeft_, afterFrames);
+    after.buffFramesLeft_ = sub_floor_zero(prev.buffFramesLeft_, prevFrames);
 
     // Apply skill change
     for (size_t i = 0; i < num_skills_; i++) {
@@ -422,7 +432,7 @@ private:
   kj::Own<Weapon::Reader> weapon_;
   kj::Own<Adventurer::Reader> adventurer_;
 
-  size_t num_skills_ = 2;  // can toggle to two
+  size_t num_skills_ = 3;  // can toggle to two
   frames_t ui_hidden_frames_ = 114;
 
   kj::ProcessContext& context;
