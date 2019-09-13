@@ -158,15 +158,20 @@ void hopcroft(HopcroftInput::Reader input, HopcroftOutput::Builder* output) {
     }
   }
   KJ_LOG(INFO, partitions.size(), "after reduction");
+#if 0
   {
     partition_t p = 0;
     for (const auto& partition : partitions) {
+#if 0
       for (state_t s : partition.states_) {
         KJ_LOG(INFO, p, s);
       }
+#endif
+      KJ_LOG(INFO, p, partition.states_.size());
       p++;
     }
   }
+#endif
 
   auto partition = output->initPartition(numStates);
   for (state_t s = 0; s < numStates; s++) {

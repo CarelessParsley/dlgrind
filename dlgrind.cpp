@@ -10,6 +10,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <optional>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -37,9 +38,26 @@ struct AdventurerStateM {
   AfterAction afterAction_;
   uint8_t uiHiddenFramesLeft_;
   uint16_t sp_[3];
+
+  bool operator==(const AdventurerStateM& other) {
+    return afterAction_ == other.afterAction_ &&
+           uiHiddenFramesLeft_ == other.uiHiddenFramesLeft_ &&
+           sp_[0] == other.sp_[0] &&
+           sp_[1] == other.sp_[1] &&
+           sp_[2] == other.sp_[2];
+  }
 };
 
-using packed_state_t = uint64_t;
+inline uint KJ_HASHCODE(const AdventurerStateM& st) {
+  return kj::hashCode(static_cast<uint>(st.afterAction_), st.uiHiddenFramesLeft_, st.sp_);
+}
+
+struct AdventurerStateHasher {
+  std::size_t operator()(const AdventurerStateM& st) const { return kj::hashCode(st); }
+};
+
+template <typename T>
+using AdventurerStateMap = std::unordered_map<AdventurerStateM, T, AdventurerStateHasher>;
 
 using state_code_t = uint64_t;
 using action_code_t = uint8_t;
@@ -60,86 +78,114 @@ public:
     weapon_ = read<Weapon>("dat/axe5b1.bin");
     adventurer_ = read<Adventurer>("dat/Erik.bin");
 
+    KJ_LOG(INFO, *weapon_class_);
+    KJ_LOG(INFO, *weapon_);
+    KJ_LOG(INFO, *adventurer_);
+
     // Compute reachable states
-    using InverseMap = std::unordered_map<packed_state_t, std::vector<std::pair<AdventurerStateM, Action>>>;
+    using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerStateM, Action>>>;
     InverseMap inverse_map;
+    size_t inverse_size = 0;
     {
-      std::vector<AdventurerStateM> todo{
-        {
-          .afterAction_ = AfterAction::AFTER_NOTHING,
-          .uiHiddenFramesLeft_ = 0,
-          .sp_ = {0, 0, 0}
-        }
+      AdventurerStateM init_st =  {
+        .afterAction_ = AfterAction::AFTER_NOTHING,
+        .uiHiddenFramesLeft_ = 0,
+        .sp_ = {0, 0, 0}
       };
+      std::vector<AdventurerStateM> todo{init_st};
+      inverse_map[init_st];
       while (todo.size()) {
         auto s = todo.back();
+        // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "loop");
         todo.pop_back();
         auto push = [&](AdventurerStateM n_s, Action a) {
-          auto code = packAdventurerStateM(n_s);
-          if (inverse_map.count(code) == 0) {
+          if (inverse_map.count(n_s) == 0) {
             todo.emplace_back(n_s);
           }
-          inverse_map[code].emplace_back(s, a);
+          inverse_map[n_s].emplace_back(s, a);
+          inverse_size++;
         };
-        // Skills
-        // TODO: Option to never hold skills
-        for (size_t i = 0; i < num_skills_; i++) {
-          if (s.sp_[i] == getSkillStat(i).getSp()) {
-            auto n_s = s;
-            n_s.sp_[i] = 0;
-            n_s.afterAction_ = afterSkill(i);
-            // TODO: Handle buffs here, if necessary!
-            push(n_s, skill(i));
+        for (auto a : magic_enum::enum_values<Action>()) {
+          auto mb_n_s = applyAction(s, a);
+          if (mb_n_s) {
+            push(*mb_n_s, a);
           }
-        }
-        // Combo
-        {
-          auto n_s = s;
-          size_t combo_index;
-          std::tie(n_s.afterAction_, combo_index) = afterCombo(s.afterAction_);
-          for (size_t i = 0; i < num_skills_; i++) {
-            n_s.sp_[i] = std::min(
-                n_s.sp_[i] + getComboStat(i).getSp(),
-                getSkillStat(i).getSp()
-            );
-          }
-          push(n_s, Action::X);
-        }
-        // Force strike
-        {
-          auto n_s = s;
-          n_s.afterAction_ = AfterAction::AFTER_FS;
-          for (size_t i = 0; i < num_skills_; i++) {
-            n_s.sp_[i] = std::min(
-                n_s.sp_[i] + weapon_class_->getFsStat().getSp(),
-                getSkillStat(i).getSp()
-            );
-          }
-          push(n_s, Action::FS);
         }
       }
     }
 
     KJ_LOG(INFO, inverse_map.size(), "initial states");
 
-    // Number states and actions
-    std::unordered_map<packed_state_t, state_code_t> state_encode;
-    std::vector<AdventurerStateM> state_decode;
+    // Number states
+    AdventurerStateMap<state_code_t> state_encode;
+    std::vector<AdventurerState> state_decode;
 
+    for (const auto& kv : inverse_map) {
+      state_encode.emplace(kv.first, state_decode.size());
+      state_decode.emplace_back(kv.first);
+    }
+
+    // Number actions
+    std::unordered_map<Action, action_code_t> action_encode;
+    std::vector<Action> action_decode;
+
+    for (auto val : magic_enum::enum_values<Action>()) {
+      action_encode.emplace(val, action_decode.size());
+      action_decode.emplace_back(val);
+    }
+
+    // Minimize states
     capnp::MallocMessageBuilder hopcroft_input_msg;
     auto hopcroft_input = hopcroft_input_msg.initRoot<HopcroftInput>();
-    hopcroft_input.setNumStates(inverse_map.size());
-    hopcroft_input.setNumActions(magic_enum::enum_count<Action>());
+    {
+      hopcroft_input.setNumStates(state_decode.size());
+      hopcroft_input.setNumActions(action_decode.size());
 
-    capnp::MallocMessageBuilder hopcroft_output;
+      {
+        auto inverse = hopcroft_input.initInverse();
+        auto states = inverse.initStates(inverse_size);
+        auto actions = inverse.initActions(inverse_size);
+        auto index = inverse.initIndex(state_decode.size() + 1);
+        size_t inverse_index = 0;
+        for (state_code_t i = 0; i < state_decode.size(); i++) {
+          index.set(i, inverse_index);
+          for (const auto& sa : inverse_map[state_decode[i]]) {
+            state_code_t s_code = state_encode[sa.first];
+            action_code_t a_code = action_encode[sa.second];
+            states.set(inverse_index, s_code);
+            actions.set(inverse_index, a_code);
+            inverse_index++;
+          }
+        }
+        KJ_ASSERT(inverse_index == inverse_size, inverse_index, inverse_size);
+        index.set(state_decode.size(), inverse_index);
+      }
 
+      auto initialPartition = hopcroft_input.initInitialPartition(state_decode.size());
+      std::unordered_map<AdventurerState, uint32_t> partition_map;
+      for (state_code_t i = 0; i < state_decode.size(); i++) {
+        AdventurerStateM s = unpackAdventurerStateM(state_decode[i]);
+        // coarsen the state
+        s.sp_[0] = 0;
+        s.sp_[1] = 0;
+        s.sp_[2] = 0;
+        auto k = packAdventurerStateM(s);
+        auto it = partition_map.find(k);
+        uint32_t v;
+        if (it == partition_map.end()) {
+          v = partition_map.size();
+          partition_map.emplace(k, v);
+        } else {
+          v = it->second;
+        }
+        initialPartition.set(i, v);
+      }
+      KJ_LOG(INFO, partition_map.size(), "initial number of partitions");
+    }
+    capnp::MallocMessageBuilder hopcroft_output_msg;
+    auto hopcroft_output = hopcroft_output_msg.initRoot<HopcroftOutput>();
 
-    /*
-    const int frames = 3600;
-
-    const frames_t s1_recovery = 111;
-    const frames_t s2_recovery = 114;
-    */
+    hopcroft(hopcroft_input, &hopcroft_output);
 
     return true;
   }
@@ -154,6 +200,10 @@ private:
     return r;
   }
 
+  // AdventurerStateM manipulation
+
+  // TODO: There's probably something wrong with this
+
   packed_state_t packAdventurerStateM(AdventurerStateM state) {
 
     uint64_t result = 0;
@@ -165,11 +215,7 @@ private:
     }
 
     result += state.uiHiddenFramesLeft_ * stride;
-    // NB: this actually can be reduced further:
-    // 114 - min(skill_recovery) + 1
-    // 114 is NOT off by one because there is no such thing as a
-    // zero frame skill
-    stride = checked_mul(stride, 114);
+    stride = checked_mul(stride, ui_hidden_frames_ + 1);
 
     result += enum_index(state.afterAction_);
     stride = checked_mul(stride, magic_enum::enum_count<AfterAction>());
@@ -177,26 +223,35 @@ private:
     return result;
   }
 
+  // THERE IS SOMETHING ROTTEN IN THE STATE OF DENMARK
   AdventurerStateM unpackAdventurerStateM(packed_state_t code) {
     AdventurerStateM state;
     for (size_t i = 0; i < num_skills_; i++) {
+      KJ_LOG(INFO, code);
       uint64_t stride = getSkillStat(i).getSp() + 1;
       state.sp_[i] = code % stride;
       code /= stride;
     }
+    KJ_LOG(INFO, code);
     {
-      uint64_t stride = 114;
+      uint64_t stride = ui_hidden_frames_ + 1;
       state.uiHiddenFramesLeft_ = code % stride;
       code /= stride;
     }
+    KJ_LOG(INFO, code);
     {
       uint64_t stride = magic_enum::enum_count<AfterAction>();
       state.afterAction_ = magic_enum::enum_value<AfterAction>(code % stride);
       code /= stride;
     }
-    KJ_ASSERT(code == 1, code);
+    KJ_ASSERT(code == 0, code);
+    // auto s = state;
+    // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "unpack");
+    KJ_ASSERT(packAdventurerStateM(state) == code);
     return state;
   }
+
+  // Indexed stat retrieval
 
   ActionStat::Reader getComboStat(size_t i) {
     return weapon_class_->getXStats()[i];
@@ -215,42 +270,212 @@ private:
     }
   }
 
-  static AfterAction afterSkill(size_t i) {
-    switch (i) {
-      case 0:
-        return AfterAction::AFTER_S1;
-      case 1:
-        return AfterAction::AFTER_S2;
-      case 2:
-        return AfterAction::AFTER_S3;
-      default: KJ_ASSERT(0, i, "out of bounds");
+  // Selector functions
+
+  static std::optional<size_t> afterSkillIndex(AfterAction after) {
+    switch (after) {
+      case AfterAction::AFTER_S1: return 0;
+      case AfterAction::AFTER_S2: return 1;
+      case AfterAction::AFTER_S3: return 2;
+      default: return std::nullopt;
     }
   }
 
-  static std::pair<AfterAction, int> afterCombo(AfterAction a) {
+  static std::optional<size_t> afterComboIndex(AfterAction after) {
+    switch (after) {
+      case AfterAction::AFTER_C1: return 0;
+      case AfterAction::AFTER_C2: return 1;
+      case AfterAction::AFTER_C3: return 2;
+      case AfterAction::AFTER_C4: return 3;
+      case AfterAction::AFTER_C5: return 4;
+      default: return std::nullopt;
+    }
+  }
+
+  static std::optional<size_t> skillIndex(Action a) {
     switch (a) {
-      case AfterAction::AFTER_C1: return {AfterAction::AFTER_C2, 1};
-      case AfterAction::AFTER_C2: return {AfterAction::AFTER_C3, 2};
-      case AfterAction::AFTER_C3: return {AfterAction::AFTER_C4, 3};
-      case AfterAction::AFTER_C4: return {AfterAction::AFTER_C5, 4};
-      default: return {AfterAction::AFTER_C1, 0};
+      case Action::S1: return 0;
+      case Action::S2: return 1;
+      case Action::S3: return 2;
+      default: return std::nullopt;
     }
   }
 
-  static Action skill(size_t i) {
-    switch (i) {
-      case 0: return Action::S1;
-      case 1: return Action::S2;
-      case 2: return Action::S3;
-      default: KJ_ASSERT(0, i, "out of bounds");
+  // State machine transition function
+
+  uint32_t afterActionSp(AfterAction after) {
+    switch (after) {
+      case AfterAction::AFTER_FS:
+        return weapon_class_->getFsStat().getSp();
+      case AfterAction::AFTER_S1:
+      case AfterAction::AFTER_S2:
+      case AfterAction::AFTER_S3:
+        return 0;
+      case AfterAction::AFTER_C1:
+      case AfterAction::AFTER_C2:
+      case AfterAction::AFTER_C3:
+      case AfterAction::AFTER_C4:
+      case AfterAction::AFTER_C5:
+        return getComboStat(*afterComboIndex(after)).getSp();
+      case AfterAction::AFTER_NOTHING:
+        return 0;
     }
+  }
+
+  std::optional<AdventurerStateM> applyAction(AdventurerStateM prev, Action a) {
+    auto after = prev;
+
+    // Wait for recovery to see if we can legally skill
+    after.uiHiddenFramesLeft_ = std::max(
+        0,
+        static_cast<int32_t>(prev.uiHiddenFramesLeft_) -
+        static_cast<int32_t>(prevRecoveryFrames(prev.afterAction_, a))
+    );
+
+    // Check if we can legally skill, and
+    // apply effects of skill if so.
+    auto mb_skill_index = skillIndex(a);
+    if (mb_skill_index) {
+      if (after.uiHiddenFramesLeft_ > 0) return std::nullopt;
+      if (after.sp_[*mb_skill_index] != getSkillStat(*mb_skill_index).getSp()) return std::nullopt;
+      after.uiHiddenFramesLeft_ = ui_hidden_frames_;
+      after.sp_[*mb_skill_index] = 0;
+    }
+
+    // Apply state machine change
+    switch (a) {
+      case Action::FS:
+        after.afterAction_ = AfterAction::AFTER_FS;
+        break;
+      case Action::X:
+        switch (after.afterAction_) {
+          case AfterAction::AFTER_C1:
+            after.afterAction_ = AfterAction::AFTER_C2;
+            break;
+          case AfterAction::AFTER_C2:
+            after.afterAction_ = AfterAction::AFTER_C3;
+            break;
+          case AfterAction::AFTER_C3:
+            after.afterAction_ = AfterAction::AFTER_C4;
+            break;
+          case AfterAction::AFTER_C4:
+            after.afterAction_ = AfterAction::AFTER_C5;
+            break;
+          default:
+            after.afterAction_ = AfterAction::AFTER_C1;
+            break;
+        }
+        break;
+      case Action::S1:
+        after.afterAction_ = AfterAction::AFTER_S1;
+        break;
+      case Action::S2:
+        after.afterAction_ = AfterAction::AFTER_S2;
+        break;
+      case Action::S3:
+        after.afterAction_ = AfterAction::AFTER_S3;
+        break;
+    }
+
+    // Account for startup cost in UI
+    after.uiHiddenFramesLeft_ = std::max(
+        0,
+        static_cast<int32_t>(after.uiHiddenFramesLeft_) -
+        static_cast<int32_t>(afterStartupFrames(prev.afterAction_, a, after.afterAction_))
+    );
+
+    // Apply skill change
+    for (size_t i = 0; i < num_skills_; i++) {
+      after.sp_[i] = std::min(
+        // SP is combo dependent, that's why we feed it afterAction
+        after.sp_[i] + afterActionSp(after.afterAction_),
+        getSkillStat(i).getSp()
+      );
+    }
+    return after;
+  }
+
+  // Frame computation
+
+  // Invariant: action in this state is legal
+  frames_t prevRecoveryFrames(AfterAction prev, Action a) {
+
+    // Some actions can cancel recovery frames
+    bool cancelling;
+    switch (a) {
+      case Action::S1:
+      case Action::S2:
+      case Action::S3:
+        cancelling = true;
+        break;
+      default:
+        cancelling = false;
+        break;
+    }
+
+    // Process recovery frames, cancelling if applicable
+    switch (prev) {
+      case AfterAction::AFTER_C1:
+      case AfterAction::AFTER_C2:
+      case AfterAction::AFTER_C3:
+      case AfterAction::AFTER_C4:
+      case AfterAction::AFTER_C5:
+        // skills cancel basic combos
+        if (skillIndex(a)) return 0;
+        // fs cancels basic combos on some weapon types
+        if (weapon_class_->getXfsStartups().size() &&
+            a == Action::FS) return 0;
+        return getComboStat(*afterComboIndex(prev)).getTiming().getRecovery();
+      case AfterAction::AFTER_FS:
+        // skills cancel force strikes
+        if (skillIndex(a)) return 0;
+        // NB: force strikes do not cancel force strikes
+        return weapon_class_->getFsStat().getTiming().getRecovery();
+      case AfterAction::AFTER_S1:
+      case AfterAction::AFTER_S2:
+      case AfterAction::AFTER_S3:
+        // nothing cancels skills
+        return getSkillStat(*afterSkillIndex(prev)).getTiming().getRecovery();
+      case AfterAction::AFTER_NOTHING:
+        return 0;
+    }
+  }
+
+  frames_t afterStartupFrames(AfterAction prev, Action a, AfterAction after) {
+    switch (a) {
+      case Action::S1:
+      case Action::S2:
+      case Action::S3:
+        return getSkillStat(*skillIndex(a)).getTiming().getStartup();
+      case Action::X:
+        return getComboStat(*afterComboIndex(after)).getTiming().getStartup();
+      case Action::FS:
+        // Startup time is adjusted on some weapon types (XFS rule)
+        // Note use of prev; after here is always AFTER_FS!
+        auto mb_combo_index = afterComboIndex(prev);
+        if (mb_combo_index && weapon_class_->getXfsStartups().size()) {
+          return weapon_class_->getXfsStartups()[*mb_combo_index];
+        } else {
+          return weapon_class_->getFsStat().getTiming().getStartup();
+        }
+    }
+  }
+
+  // Compute the number of frames to get to the next action point.
+  // Note that this considers the recovery of your previous action
+  // (not the one here), but NOT the recovery of this action.  The
+  // transition is assumed to be legal.
+  frames_t computeFrames(AfterAction prev, Action a, AfterAction after) {
+    return prevRecoveryFrames(prev, a) +
+           afterStartupFrames(prev, a, after);
   }
 
   kj::Own<WeaponClass::Reader> weapon_class_;
   kj::Own<Weapon::Reader> weapon_;
   kj::Own<Adventurer::Reader> adventurer_;
 
-  size_t num_skills_ = 3;  // can toggle to two
+  size_t num_skills_ = 2;  // can toggle to two
+  frames_t ui_hidden_frames_ = 114;
 
   kj::ProcessContext& context;
 };
