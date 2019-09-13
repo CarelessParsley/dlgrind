@@ -122,11 +122,3 @@ struct Adventurer {
   s2Stat @1 :ActionStat;
   name @2 :AdventurerName;
 }
-
-# TODO: Do I ever need this rep for anything?
-struct AdventurerState {
-  afterAction @0 :AfterAction;
-  # UI recovery is 114 frames; therefore, 8-bit is enough
-  uiHiddenFramesLeft @1 :UInt8;
-  sp @2 :List(UInt16);
-}

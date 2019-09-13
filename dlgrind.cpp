@@ -34,12 +34,12 @@ size_t enum_index(T val) {
   KJ_ASSERT(0, val, "invalid enum");
 }
 
-struct AdventurerStateM {
+struct AdventurerState {
   AfterAction afterAction_;
   uint8_t uiHiddenFramesLeft_;
   uint16_t sp_[3];
 
-  bool operator==(const AdventurerStateM& other) {
+  bool operator==(const AdventurerState& other) const {
     return afterAction_ == other.afterAction_ &&
            uiHiddenFramesLeft_ == other.uiHiddenFramesLeft_ &&
            sp_[0] == other.sp_[0] &&
@@ -48,16 +48,16 @@ struct AdventurerStateM {
   }
 };
 
-inline uint KJ_HASHCODE(const AdventurerStateM& st) {
-  return kj::hashCode(static_cast<uint>(st.afterAction_), st.uiHiddenFramesLeft_, st.sp_);
+inline uint KJ_HASHCODE(const AdventurerState& st) {
+  return kj::hashCode(static_cast<uint>(st.afterAction_), st.uiHiddenFramesLeft_, st.sp_[0], st.sp_[1], st.sp_[2]);
 }
 
 struct AdventurerStateHasher {
-  std::size_t operator()(const AdventurerStateM& st) const { return kj::hashCode(st); }
+  std::size_t operator()(const AdventurerState& st) const { return kj::hashCode(st); }
 };
 
 template <typename T>
-using AdventurerStateMap = std::unordered_map<AdventurerStateM, T, AdventurerStateHasher>;
+using AdventurerStateMap = std::unordered_map<AdventurerState, T, AdventurerStateHasher>;
 
 using state_code_t = uint64_t;
 using action_code_t = uint8_t;
@@ -83,22 +83,22 @@ public:
     KJ_LOG(INFO, *adventurer_);
 
     // Compute reachable states
-    using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerStateM, Action>>>;
+    using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerState, Action>>>;
     InverseMap inverse_map;
     size_t inverse_size = 0;
     {
-      AdventurerStateM init_st =  {
+      AdventurerState init_st =  {
         .afterAction_ = AfterAction::AFTER_NOTHING,
         .uiHiddenFramesLeft_ = 0,
         .sp_ = {0, 0, 0}
       };
-      std::vector<AdventurerStateM> todo{init_st};
+      std::vector<AdventurerState> todo{init_st};
       inverse_map[init_st];
       while (todo.size()) {
         auto s = todo.back();
         // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "loop");
         todo.pop_back();
-        auto push = [&](AdventurerStateM n_s, Action a) {
+        auto push = [&](AdventurerState n_s, Action a) {
           if (inverse_map.count(n_s) == 0) {
             todo.emplace_back(n_s);
           }
@@ -162,19 +162,18 @@ public:
       }
 
       auto initialPartition = hopcroft_input.initInitialPartition(state_decode.size());
-      std::unordered_map<AdventurerState, uint32_t> partition_map;
+      AdventurerStateMap<uint32_t> partition_map;
       for (state_code_t i = 0; i < state_decode.size(); i++) {
-        AdventurerStateM s = unpackAdventurerStateM(state_decode[i]);
+        AdventurerState s = state_decode[i];
         // coarsen the state
         s.sp_[0] = 0;
         s.sp_[1] = 0;
         s.sp_[2] = 0;
-        auto k = packAdventurerStateM(s);
-        auto it = partition_map.find(k);
+        auto it = partition_map.find(s);
         uint32_t v;
         if (it == partition_map.end()) {
           v = partition_map.size();
-          partition_map.emplace(k, v);
+          partition_map.emplace(s, v);
         } else {
           v = it->second;
         }
@@ -198,57 +197,6 @@ private:
     auto r = capnp::clone(capnp::StreamFdMessageReader(fd).getRoot<T>());
     close(fd);
     return r;
-  }
-
-  // AdventurerStateM manipulation
-
-  // TODO: There's probably something wrong with this
-
-  packed_state_t packAdventurerStateM(AdventurerStateM state) {
-
-    uint64_t result = 0;
-    uint64_t stride = 1;
-
-    for (size_t i = 0; i < num_skills_; i++) {
-      result += state.sp_[i] * stride;
-      stride = checked_mul(stride, getSkillStat(i).getSp() + 1);
-    }
-
-    result += state.uiHiddenFramesLeft_ * stride;
-    stride = checked_mul(stride, ui_hidden_frames_ + 1);
-
-    result += enum_index(state.afterAction_);
-    stride = checked_mul(stride, magic_enum::enum_count<AfterAction>());
-
-    return result;
-  }
-
-  // THERE IS SOMETHING ROTTEN IN THE STATE OF DENMARK
-  AdventurerStateM unpackAdventurerStateM(packed_state_t code) {
-    AdventurerStateM state;
-    for (size_t i = 0; i < num_skills_; i++) {
-      KJ_LOG(INFO, code);
-      uint64_t stride = getSkillStat(i).getSp() + 1;
-      state.sp_[i] = code % stride;
-      code /= stride;
-    }
-    KJ_LOG(INFO, code);
-    {
-      uint64_t stride = ui_hidden_frames_ + 1;
-      state.uiHiddenFramesLeft_ = code % stride;
-      code /= stride;
-    }
-    KJ_LOG(INFO, code);
-    {
-      uint64_t stride = magic_enum::enum_count<AfterAction>();
-      state.afterAction_ = magic_enum::enum_value<AfterAction>(code % stride);
-      code /= stride;
-    }
-    KJ_ASSERT(code == 0, code);
-    // auto s = state;
-    // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "unpack");
-    KJ_ASSERT(packAdventurerStateM(state) == code);
-    return state;
   }
 
   // Indexed stat retrieval
@@ -322,7 +270,7 @@ private:
     }
   }
 
-  std::optional<AdventurerStateM> applyAction(AdventurerStateM prev, Action a) {
+  std::optional<AdventurerState> applyAction(AdventurerState prev, Action a) {
     auto after = prev;
 
     // Wait for recovery to see if we can legally skill
