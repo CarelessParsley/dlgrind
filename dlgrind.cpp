@@ -45,6 +45,11 @@ struct AdventurerState {
   uint16_t sp_[3];
   uint16_t buffFramesLeft_;
 
+  void advanceFrames(frames_t frames) {
+    uiHiddenFramesLeft_ = sub_floor_zero(uiHiddenFramesLeft_, frames);
+    buffFramesLeft_ = sub_floor_zero(buffFramesLeft_, frames);
+  }
+
   bool operator==(const AdventurerState& other) const {
     return afterAction_ == other.afterAction_ &&
            uiHiddenFramesLeft_ == other.uiHiddenFramesLeft_ &&
@@ -183,6 +188,7 @@ public:
         s.sp_[0] = 0;
         s.sp_[1] = 0;
         s.sp_[2] = 0;
+        s.buffFramesLeft_ = s.buffFramesLeft_ != 0;
         auto it = partition_map.find(s);
         uint32_t v;
         if (it == partition_map.end()) {
@@ -284,20 +290,39 @@ private:
     }
   }
 
-  std::optional<AdventurerState> applyAction(AdventurerState prev, Action a) {
+  /*
+   * The most important picture
+   *     _____________________________.  when the action actually happens
+   *    /
+   * [ AP ]   recovery   |   startup   [ AP ]
+   *  prev             input            after
+   *
+   */
+
+  std::optional<AdventurerState> applyAction(AdventurerState prev, Action a, frames_t* frames_out = nullptr) {
     auto after = prev;
+
+    frames_t frames = 0;
 
     // Wait for recovery to see if we can legally skill
     frames_t prevFrames = prevRecoveryFrames(prev.afterAction_, a);
-    after.uiHiddenFramesLeft_ = sub_floor_zero(prev.uiHiddenFramesLeft_, prevFrames);
-    after.buffFramesLeft_ = sub_floor_zero(prev.buffFramesLeft_, prevFrames);
+    after.advanceFrames(prevFrames);
+    frames += prevFrames;
 
     // Check if we can legally skill, and
     // apply effects of skill if so.
     auto mb_skill_index = skillIndex(a);
     if (mb_skill_index) {
-      if (after.uiHiddenFramesLeft_ > 0) return std::nullopt;
-      if (after.sp_[*mb_skill_index] != getSkillStat(*mb_skill_index).getSp()) return std::nullopt;
+      if (after.uiHiddenFramesLeft_ > 0) {
+        // Apply delay from UI
+        frames_t delayFrames = after.uiHiddenFramesLeft_;
+        after.advanceFrames(delayFrames);
+        frames += delayFrames;
+      }
+      if (after.sp_[*mb_skill_index] < getSkillStat(*mb_skill_index).getSp()) {
+        return std::nullopt;
+      }
+      KJ_ASSERT(after.uiHiddenFramesLeft_ == 0);
       after.uiHiddenFramesLeft_ = ui_hidden_frames_;
       after.sp_[*mb_skill_index] = 0;
     }
@@ -337,12 +362,18 @@ private:
         break;
     }
 
+
     // Account for startup cost in UI
     frames_t afterFrames = afterStartupFrames(prev.afterAction_, a, after.afterAction_);
-    after.uiHiddenFramesLeft_ = sub_floor_zero(after.uiHiddenFramesLeft_, afterFrames);
-    after.buffFramesLeft_ = sub_floor_zero(prev.buffFramesLeft_, prevFrames);
+    after.advanceFrames(afterFrames);
+    frames += afterFrames;
 
-    // Apply skill change
+    // Apply skill effects
+    if (weapon_->getName() == WeaponName::AXE5B1 && a == Action::S3) {
+      after.buffFramesLeft_ = 20 * 60;
+    }
+
+    // Apply skill SP change
     for (size_t i = 0; i < num_skills_; i++) {
       after.sp_[i] = std::min(
         // SP is combo dependent, that's why we feed it afterAction
@@ -350,27 +381,22 @@ private:
         getSkillStat(i).getSp()
       );
     }
+
+    if (frames_out) *frames_out = frames;
     return after;
   }
 
   // Frame computation
 
+  frames_t computeFrames(AdventurerState prev, Action a) {
+    frames_t r;
+    auto ok = applyAction(prev, a, &r);
+    KJ_ASSERT(!!ok);
+    return r;
+  }
+
   // Invariant: action in this state is legal
   frames_t prevRecoveryFrames(AfterAction prev, Action a) {
-
-    // Some actions can cancel recovery frames
-    bool cancelling;
-    switch (a) {
-      case Action::S1:
-      case Action::S2:
-      case Action::S3:
-        cancelling = true;
-        break;
-      default:
-        cancelling = false;
-        break;
-    }
-
     // Process recovery frames, cancelling if applicable
     switch (prev) {
       case AfterAction::AFTER_C1:
@@ -417,15 +443,6 @@ private:
           return weapon_class_->getFsStat().getTiming().getStartup();
         }
     }
-  }
-
-  // Compute the number of frames to get to the next action point.
-  // Note that this considers the recovery of your previous action
-  // (not the one here), but NOT the recovery of this action.  The
-  // transition is assumed to be legal.
-  frames_t computeFrames(AfterAction prev, Action a, AfterAction after) {
-    return prevRecoveryFrames(prev, a) +
-           afterStartupFrames(prev, a, after);
   }
 
   kj::Own<WeaponClass::Reader> weapon_class_;
