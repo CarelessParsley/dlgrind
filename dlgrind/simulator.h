@@ -9,6 +9,19 @@
 #include <optional>
 #include <unordered_map>
 
+#include <capnp/serialize.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+template <typename T>
+inline kj::Own<typename T::Reader> read(const char* fn) {
+  int fd = open(fn, O_RDONLY);
+  auto r = capnp::clone(capnp::StreamFdMessageReader(fd).getRoot<T>());
+  KJ_LOG(INFO, fn, *r);
+  close(fd);
+  return r;
+}
+
 class Simulator {
 public:
   std::optional<AdventurerState> applyAction(

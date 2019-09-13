@@ -13,9 +13,6 @@
 #include <vector>
 #include <optional>
 
-#include <fcntl.h>
-#include <unistd.h>
-
 // Return the index of an enum in magic_enum::enum_values
 template <typename T>
 size_t enum_index(T val) {
@@ -157,18 +154,7 @@ public:
   }
 
 private:
-
-  template <typename T>
-  static kj::Own<typename T::Reader> read(const char* fn) {
-    int fd = open(fn, O_RDONLY);
-    auto r = capnp::clone(capnp::StreamFdMessageReader(fd).getRoot<T>());
-    KJ_LOG(INFO, fn, *r);
-    close(fd);
-    return r;
-  }
-
   Simulator sim_;
-
   kj::ProcessContext& context;
 };
 
