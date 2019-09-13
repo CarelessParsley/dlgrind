@@ -18,6 +18,11 @@ capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS dlgrind/schema.capnp)
 
 add_executable(dlgrind
   dlgrind/hopcroft.cpp
+  dlgrind/hopcroft.h
+  dlgrind/simulator.cpp
+  dlgrind/simulator.h
+  dlgrind/state.cpp
+  dlgrind/state.h
   dlgrind.cpp
   magic_enum.h
   ${CAPNP_SRCS}
