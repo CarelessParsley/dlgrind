@@ -46,7 +46,7 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
       st.buffFramesLeft_);
 }
 
-inline kj::StringPtr KJ_STRINGIFY(const AdventurerState& st) {
+inline kj::String KJ_STRINGIFY(const AdventurerState& st) {
   return kj::str("a=", std::string(magic_enum::enum_name(st.afterAction_)), "; sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; ui=", st.uiHiddenFramesLeft_, "; buff=", st.buffFramesLeft_);
 }
 

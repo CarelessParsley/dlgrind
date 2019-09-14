@@ -1,5 +1,5 @@
 *.dSYM
 callgrind.out*
 *.csv
-build
+build*
 *.bin
