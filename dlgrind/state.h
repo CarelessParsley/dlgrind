@@ -2,6 +2,8 @@
 
 #include <dlgrind/schema.capnp.h>
 
+#include <magic_enum.h>
+
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -14,10 +16,10 @@ inline frames_t sub_floor_zero(frames_t a, frames_t b) {
 }
 
 struct AdventurerState {
-  AfterAction afterAction_;
-  uint8_t uiHiddenFramesLeft_;
-  uint16_t sp_[3];
-  uint16_t buffFramesLeft_;
+  AfterAction afterAction_ = AfterAction::AFTER_NOTHING;
+  uint8_t uiHiddenFramesLeft_ = 0;
+  uint16_t sp_[3] = {0, 0, 0};
+  uint16_t buffFramesLeft_ = 0;
 
   void advanceFrames(frames_t frames) {
     uiHiddenFramesLeft_ = sub_floor_zero(uiHiddenFramesLeft_, frames);
@@ -42,6 +44,10 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
       st.sp_[1],
       st.sp_[2],
       st.buffFramesLeft_);
+}
+
+inline kj::StringPtr KJ_STRINGIFY(const AdventurerState& st) {
+  return kj::str("a=", std::string(magic_enum::enum_name(st.afterAction_)), "; sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; ui=", st.uiHiddenFramesLeft_, "; buff=", st.buffFramesLeft_);
 }
 
 struct AdventurerStateHasher {

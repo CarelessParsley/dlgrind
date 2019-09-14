@@ -28,12 +28,12 @@ size_t enum_index(T val) {
 using state_code_t = uint64_t;
 using action_code_t = uint8_t;
 
-class DLGrindMain {
+class DLGrindOpt {
 public:
-  explicit DLGrindMain(kj::ProcessContext& context)
+  explicit DLGrindOpt(kj::ProcessContext& context)
       : context(context) {}
   kj::MainFunc getMain() {
-    return kj::MainBuilder(context, "dlgrind",
+    return kj::MainBuilder(context, "dlgrind-opt",
         "Compute optimal rotations for characters in Dragalia Lost")
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
@@ -49,12 +49,7 @@ public:
     InverseMap inverse_map;
     size_t inverse_size = 0;
     {
-      AdventurerState init_st =  {
-        .afterAction_ = AfterAction::AFTER_NOTHING,
-        .uiHiddenFramesLeft_ = 0,
-        .sp_ = {0, 0, 0},
-        .buffFramesLeft_ = 0
-      };
+      AdventurerState init_st;
       std::vector<AdventurerState> todo{init_st};
       inverse_map[init_st];
       while (todo.size()) {
@@ -158,4 +153,4 @@ private:
   kj::ProcessContext& context;
 };
 
-KJ_MAIN(DLGrindMain);
+KJ_MAIN(DLGrindOpt);
