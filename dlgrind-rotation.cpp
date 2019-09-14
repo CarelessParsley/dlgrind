@@ -1,5 +1,4 @@
-#include <kj/main.h>
-
+#include <dlgrind/main.h>
 #include <dlgrind/schema.capnp.h>
 #include <dlgrind/hopcroft.h>
 #include <dlgrind/simulator.h>
@@ -14,19 +13,21 @@
 #include <vector>
 #include <optional>
 
-class DLGrindRotation {
+class DLGrindRotation : DLGrind {
 public:
   explicit DLGrindRotation(kj::ProcessContext& context)
-      : context(context) {}
+      : DLGrind(context) {}
   kj::MainFunc getMain() {
-    return kj::MainBuilder(context, "dlgrind-rotation",
+    return kj::MainBuilder(context_, "dlgrind-rotation",
         "Simulate a fixed rotation, computing frame count")
-      .expectOneOrMoreArgs("<rotation>", KJ_BIND_METHOD(*this, processInput))
+      .addOptionWithArg({'c', "config"}, KJ_BIND_METHOD(*this, setConfig),
+          "<filename>", "Read config from <filename>.")
+      .expectOneOrMoreArgs("<rotation>", KJ_BIND_METHOD(*this, setRotation))
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
   }
 
-  kj::MainBuilder::Validity processInput(kj::StringPtr action) {
+  kj::MainBuilder::Validity setRotation(kj::StringPtr action) {
     if (action == "fs") {
       rotation_.emplace_back(Action::FS);
     } else if (action == "x") {
@@ -58,9 +59,7 @@ public:
   }
 
   kj::MainBuilder::Validity run() {
-    sim_.setWeaponClass(read<WeaponClass>("dat/axe.bin"));
-    sim_.setWeapon(read<Weapon>("dat/axe5b1.bin"));
-    sim_.setAdventurer(read<Adventurer>("dat/Erik.bin"));
+    readConfig();
 
     frames_t frames = 0;
     AdventurerState st;
@@ -82,8 +81,6 @@ public:
 
 private:
   std::vector<Action> rotation_;
-  Simulator sim_;
-  kj::ProcessContext& context;
 };
 
 KJ_MAIN(DLGrindRotation);

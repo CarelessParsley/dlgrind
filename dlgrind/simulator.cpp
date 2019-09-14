@@ -3,17 +3,17 @@
 // Indexed stat retrieval
 
 ActionStat::Reader Simulator::getComboStat(size_t i) {
-  return weapon_class_->getXStats()[i];
+  return config_->getWeaponClass().getXStats()[i];
 }
 
 ActionStat::Reader Simulator::getSkillStat(size_t i) {
   switch (i) {
     case 0:
-      return adventurer_->getS1Stat();
+      return config_->getAdventurer().getS1Stat();
     case 1:
-      return adventurer_->getS2Stat();
+      return config_->getAdventurer().getS2Stat();
     case 2:
-      return weapon_->getS3Stat();
+      return config_->getWeapon().getS3Stat();
     default:
       KJ_ASSERT(0, i, "out of bounds");
   }
@@ -55,7 +55,7 @@ static std::optional<size_t> skillIndex(Action a) {
 uint32_t Simulator::afterActionSp(AfterAction after) {
   switch (after) {
     case AfterAction::AFTER_FS:
-      return weapon_class_->getFsStat().getSp();
+      return config_->getWeaponClass().getFsStat().getSp();
     case AfterAction::AFTER_S1:
     case AfterAction::AFTER_S2:
     case AfterAction::AFTER_S3:
@@ -152,7 +152,7 @@ std::optional<AdventurerState> Simulator::applyAction(
   frames += afterFrames;
 
   // Apply skill effects
-  if (weapon_->getName() == WeaponName::AXE5B1 && a == Action::S3) {
+  if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
     after.buffFramesLeft_ = 20 * 60;
   }
 
@@ -181,14 +181,14 @@ frames_t Simulator::prevRecoveryFrames(AfterAction prev, Action a) {
       // skills cancel basic combos
       if (skillIndex(a)) return 0;
       // fs cancels basic combos on some weapon types
-      if (weapon_class_->getXfsStartups().size() &&
+      if (config_->getWeaponClass().getXfsStartups().size() &&
           a == Action::FS) return 0;
       return getComboStat(*afterComboIndex(prev)).getTiming().getRecovery();
     case AfterAction::AFTER_FS:
       // skills cancel force strikes
       if (skillIndex(a)) return 0;
       // NB: force strikes do not cancel force strikes
-      return weapon_class_->getFsStat().getTiming().getRecovery();
+      return config_->getWeaponClass().getFsStat().getTiming().getRecovery();
     case AfterAction::AFTER_S1:
     case AfterAction::AFTER_S2:
     case AfterAction::AFTER_S3:
@@ -211,10 +211,10 @@ frames_t Simulator::afterStartupFrames(AfterAction prev, Action a, AfterAction a
       // Startup time is adjusted on some weapon types (XFS rule)
       // Note use of prev; after here is always AFTER_FS!
       auto mb_combo_index = afterComboIndex(prev);
-      if (mb_combo_index && weapon_class_->getXfsStartups().size()) {
-        return weapon_class_->getXfsStartups()[*mb_combo_index];
+      if (mb_combo_index && config_->getWeaponClass().getXfsStartups().size()) {
+        return config_->getWeaponClass().getXfsStartups()[*mb_combo_index];
       } else {
-        return weapon_class_->getFsStat().getTiming().getStartup();
+        return config_->getWeaponClass().getFsStat().getTiming().getStartup();
       }
   }
 }

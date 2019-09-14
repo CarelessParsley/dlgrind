@@ -58,7 +58,6 @@ struct Weapon {
   name @0 :WeaponName;
   wtype @1 :WeaponType;
   s3Stat @2 :ActionStat;
-  attack @3 :UInt16;
 }
 
 enum Action {
@@ -90,4 +89,12 @@ struct Adventurer {
   s1Stat @0 :ActionStat;
   s2Stat @1 :ActionStat;
   name @2 :AdventurerName;
+}
+
+struct Config {
+  adventurer @0 :Adventurer;
+  weapon @1 :Weapon;
+  weaponClass @2 :WeaponClass;
+  # baseAtt @3 :Float32;
+  # allModifiers @4 :Modifiers;
 }

@@ -13,15 +13,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-template <typename T>
-inline kj::Own<typename T::Reader> read(const char* fn) {
-  int fd = open(fn, O_RDONLY);
-  auto r = capnp::clone(capnp::StreamFdMessageReader(fd).getRoot<T>());
-  KJ_LOG(INFO, fn, *r);
-  close(fd);
-  return r;
-}
-
 class Simulator {
 public:
   std::optional<AdventurerState> applyAction(
@@ -37,14 +28,8 @@ public:
     return r;
   }
 
-  void setWeaponClass(kj::Own<WeaponClass::Reader> weapon_class) {
-    weapon_class_ = std::move(weapon_class);
-  }
-  void setWeapon(kj::Own<Weapon::Reader> weapon) {
-    weapon_ = std::move(weapon);
-  }
-  void setAdventurer(kj::Own<Adventurer::Reader> adventurer) {
-    adventurer_ = std::move(adventurer);
+  void setConfig(kj::Own<Config::Reader> config) {
+    config_ = std::move(config);
   }
 
 private:
@@ -55,9 +40,7 @@ private:
   frames_t prevRecoveryFrames(AfterAction prev, Action a);
   frames_t afterStartupFrames(AfterAction prev, Action a, AfterAction after);
 
-  kj::Own<WeaponClass::Reader> weapon_class_;
-  kj::Own<Weapon::Reader> weapon_;
-  kj::Own<Adventurer::Reader> adventurer_;
+  kj::Own<Config::Reader> config_;
 
   size_t num_skills_ = 3;  // can toggle to two
   frames_t ui_hidden_frames_ = 114;

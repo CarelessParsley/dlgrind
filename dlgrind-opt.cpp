@@ -1,5 +1,4 @@
-#include <kj/main.h>
-
+#include <dlgrind/main.h>
 #include <dlgrind/schema.capnp.h>
 #include <dlgrind/hopcroft.h>
 #include <dlgrind/simulator.h>
@@ -29,24 +28,24 @@ size_t enum_index(T val) {
 using state_code_t = uint64_t;
 using action_code_t = uint8_t;
 
-class DLGrindOpt {
+class DLGrindOpt : DLGrind {
 public:
   explicit DLGrindOpt(kj::ProcessContext& context)
-      : context(context) {}
+      : DLGrind(context) {}
   kj::MainFunc getMain() {
-    return kj::MainBuilder(context, "dlgrind-opt",
+    return kj::MainBuilder(context_, "dlgrind-opt",
         "Compute optimal rotations for characters in Dragalia Lost")
+      .addOptionWithArg({'c', "config"}, KJ_BIND_METHOD(*this, setConfig),
+          "<filename>", "Read config from <filename>.")
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
   }
 
   kj::MainBuilder::Validity run() {
+    readConfig();
+
     // Make IO faster
     std::ios_base::sync_with_stdio(false);
-
-    sim_.setWeaponClass(read<WeaponClass>("dat/axe.bin"));
-    sim_.setWeapon(read<Weapon>("dat/axe5b1.bin"));
-    sim_.setAdventurer(read<Adventurer>("dat/Erik.bin"));
 
     // Compute reachable states
     using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerState, Action>>>;
@@ -152,10 +151,6 @@ public:
 
     return true;
   }
-
-private:
-  Simulator sim_;
-  kj::ProcessContext& context;
 };
 
 KJ_MAIN(DLGrindOpt);

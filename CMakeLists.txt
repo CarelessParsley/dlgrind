@@ -26,6 +26,7 @@ add_library(dlgrind
   dlgrind/simulator.h
   dlgrind/state.cpp
   dlgrind/state.h
+  dlgrind/main.h
   magic_enum.h
   ${CAPNP_SRCS}
   ${CAPNP_HDRS}
