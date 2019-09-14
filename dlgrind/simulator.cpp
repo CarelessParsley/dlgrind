@@ -187,21 +187,26 @@ std::optional<AdventurerState> Simulator::applyAction(
     double dmg = 5./3;
     dmg *= config_->getAdventurer().getBaseStrength();
     dmg *= (1. + config_->getAdventurer().getModifiers().getStrength());
-    // TODO: apply strength buffs
     // TODO: apply strength coab
+    // strength buffs here:
+    // (none)
     dmg *= afterActionDmg(after.afterAction_) / 100.;
     if (skillIndex(a)) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getSkillDmg());
-      // TODO: apply skill dmg buffs
       // TODO: apply skill dmg coab
+      // skill dmg buffs here:
+      // (none)
     } else if (a == Action::FS) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getFsDmg());
     }
     dmg /= 10.;
-    // TODO: apply crit rate buffs, coab
     double crit_rate = config_->getAdventurer().getModifiers().getCritRate();
-    // TODO: apply crit dmg buff
     double crit_dmg = config_->getAdventurer().getModifiers().getCritDmg() + 0.7;
+    // crit buffs here:
+    if (config_->getWeapon().getName() == WeaponName::AXE5B1 &&
+        after.buffFramesLeft_[2] > 0) {
+      crit_dmg += 0.50;
+    }
     dmg *= 1 + crit_rate * crit_dmg;
     dmg *= 1.5;
     if (dmg_out) *dmg_out = dmg;
@@ -209,7 +214,7 @@ std::optional<AdventurerState> Simulator::applyAction(
 
   // Apply skill effects
   if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
-    after.buffFramesLeft_ = 20 * 60;
+    after.buffFramesLeft_[2] = 20 * 60;
   }
 
   if (frames_out) *frames_out = frames;

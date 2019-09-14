@@ -128,10 +128,10 @@ public:
       for (state_code_t i = 0; i < state_decode.size(); i++) {
         AdventurerState s = state_decode[i];
         // coarsen the state
-        s.sp_[0] = 0;
-        s.sp_[1] = 0;
-        s.sp_[2] = 0;
-        s.buffFramesLeft_ = s.buffFramesLeft_ != 0;
+        for (size_t i = 0; i < 3; i++) {
+          s.sp_[i] = 0;
+          s.buffFramesLeft_[i] = s.buffFramesLeft_[i] != 0;
+        }
         auto it = partition_map.find(s);
         uint32_t v;
         if (it == partition_map.end()) {
