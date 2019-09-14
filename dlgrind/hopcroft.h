@@ -1,5 +1,5 @@
 #pragma once
 
-#include <dlgrind/schema.capnp.h>
+#include <dlgrind/hopcroft.capnp.h>
 
 void hopcroft(HopcroftInput::Reader input, HopcroftOutput::Builder* output);

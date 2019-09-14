@@ -14,7 +14,10 @@ add_subdirectory(capnproto)
 
 set(CAPNPC_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CAPNPC_OUTPUT_DIR})
-capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS dlgrind/schema.capnp)
+capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS
+  dlgrind/schema.capnp
+  dlgrind/hopcroft.capnp
+  )
 
 add_library(dlgrind
   dlgrind/hopcroft.cpp
