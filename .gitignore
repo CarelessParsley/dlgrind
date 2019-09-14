@@ -2,4 +2,3 @@
 callgrind.out*
 *.csv
 build*
-*.bin
