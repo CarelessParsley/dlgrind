@@ -14,13 +14,13 @@
 #include <vector>
 #include <optional>
 
-class DLGrindFrame {
+class DLGrindRotation {
 public:
-  explicit DLGrindFrame(kj::ProcessContext& context)
+  explicit DLGrindRotation(kj::ProcessContext& context)
       : context(context) {}
   kj::MainFunc getMain() {
-    return kj::MainBuilder(context, "dlgrind-frame",
-        "Print frame count for combo sequences, not including trailing recovery")
+    return kj::MainBuilder(context, "dlgrind-rotation",
+        "Simulate a fixed rotation, computing frame count")
       .expectOneOrMoreArgs("<rotation>", KJ_BIND_METHOD(*this, processInput))
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
@@ -86,4 +86,4 @@ private:
   kj::ProcessContext& context;
 };
 
-KJ_MAIN(DLGrindFrame);
+KJ_MAIN(DLGrindRotation);

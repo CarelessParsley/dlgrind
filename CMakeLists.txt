@@ -38,5 +38,5 @@ target_include_directories(
 add_executable(dlgrind-opt dlgrind-opt.cpp)
 target_link_libraries(dlgrind-opt dlgrind)
 
-add_executable(dlgrind-frame dlgrind-frame.cpp)
-target_link_libraries(dlgrind-frame dlgrind)
+add_executable(dlgrind-rotation dlgrind-rotation.cpp)
+target_link_libraries(dlgrind-rotation dlgrind)
