@@ -116,7 +116,7 @@ std::optional<AdventurerState> Simulator::applyAction(
       after.afterAction_ = AfterAction::AFTER_FS;
       break;
     case Action::X:
-      switch (after.afterAction_) {
+      switch (prev.afterAction_) {
         case AfterAction::AFTER_C1:
           after.afterAction_ = AfterAction::AFTER_C2;
           break;

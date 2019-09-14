@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <vector>
 #include <optional>
+#include <iostream>
 
 // Return the index of an enum in magic_enum::enum_values
 template <typename T>
@@ -40,6 +41,9 @@ public:
   }
 
   kj::MainBuilder::Validity run() {
+    // Make IO faster
+    std::ios_base::sync_with_stdio(false);
+
     sim_.setWeaponClass(read<WeaponClass>("dat/axe.bin"));
     sim_.setWeapon(read<Weapon>("dat/axe5b1.bin"));
     sim_.setAdventurer(read<Adventurer>("dat/Erik.bin"));
@@ -55,6 +59,7 @@ public:
       while (todo.size()) {
         auto s = todo.back();
         // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "loop");
+        //std::cout << kj::str(s).cStr() << "\n";
         todo.pop_back();
         auto push = [&](AdventurerState n_s, Action a) {
           if (inverse_map.count(n_s) == 0) {
