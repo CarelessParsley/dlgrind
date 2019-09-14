@@ -71,6 +71,26 @@ uint32_t Simulator::afterActionSp(AfterAction after) {
   }
 }
 
+double Simulator::afterActionDmg(AfterAction after) {
+  switch (after) {
+    case AfterAction::AFTER_FS:
+      return config_->getWeaponClass().getFsStat().getDmg();
+    case AfterAction::AFTER_S1:
+    case AfterAction::AFTER_S2:
+    case AfterAction::AFTER_S3:
+      return getSkillStat(*afterSkillIndex(after)).getDmg();
+    case AfterAction::AFTER_C1:
+    case AfterAction::AFTER_C2:
+    case AfterAction::AFTER_C3:
+    case AfterAction::AFTER_C4:
+    case AfterAction::AFTER_C5:
+      return getComboStat(*afterComboIndex(after)).getDmg();
+    case AfterAction::AFTER_NOTHING:
+      return 0;
+  }
+}
+
+
 /*
  * The most important picture
  *     _____________________________.  when the action actually happens
@@ -81,7 +101,7 @@ uint32_t Simulator::afterActionSp(AfterAction after) {
  */
 
 std::optional<AdventurerState> Simulator::applyAction(
-    AdventurerState prev, Action a, frames_t* frames_out) {
+    AdventurerState prev, Action a, frames_t* frames_out, double* dmg_out) {
 
   auto after = prev;
 
@@ -151,11 +171,6 @@ std::optional<AdventurerState> Simulator::applyAction(
   after.advanceFrames(afterFrames);
   frames += afterFrames;
 
-  // Apply skill effects
-  if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
-    after.buffFramesLeft_ = 20 * 60;
-  }
-
   // Apply skill SP change
   for (size_t i = 0; i < num_skills_; i++) {
     after.sp_[i] = std::min(
@@ -163,6 +178,38 @@ std::optional<AdventurerState> Simulator::applyAction(
       after.sp_[i] + afterActionSp(after.afterAction_),
       getSkillStat(i).getSp()
     );
+  }
+
+  // Compute damage
+  //  (NB: some units have to compute damage after skill effects;
+  //  e.g., Alfonse S1 and Serena. Be careful!)
+  {
+    double dmg = 5./3;
+    dmg *= config_->getAdventurer().getBaseStrength();
+    dmg *= (1. + config_->getAdventurer().getModifiers().getStrength());
+    // TODO: apply strength buffs
+    // TODO: apply strength coab
+    dmg *= afterActionDmg(after.afterAction_) / 100.;
+    if (skillIndex(a)) {
+      dmg *= (1. + config_->getAdventurer().getModifiers().getSkillDmg());
+      // TODO: apply skill dmg buffs
+      // TODO: apply skill dmg coab
+    } else if (a == Action::FS) {
+      dmg *= (1. + config_->getAdventurer().getModifiers().getFsDmg());
+    }
+    dmg /= 10.;
+    // TODO: apply crit rate buffs, coab
+    double crit_rate = config_->getAdventurer().getModifiers().getCritRate();
+    // TODO: apply crit dmg buff
+    double crit_dmg = config_->getAdventurer().getModifiers().getCritDmg() + 0.7;
+    dmg *= 1 + crit_rate * crit_dmg;
+    dmg *= 1.5;
+    if (dmg_out) *dmg_out = dmg;
+  }
+
+  // Apply skill effects
+  if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
+    after.buffFramesLeft_ = 20 * 60;
   }
 
   if (frames_out) *frames_out = frames;

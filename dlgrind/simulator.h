@@ -18,7 +18,8 @@ public:
   std::optional<AdventurerState> applyAction(
       AdventurerState prev,
       Action a,
-      frames_t* frames_out = nullptr
+      frames_t* frames_out = nullptr,
+      double* dmg_out = nullptr
       );
 
   frames_t computeFrames(AdventurerState prev, Action a) {
@@ -36,6 +37,7 @@ private:
   ActionStat::Reader getComboStat(size_t i);
   ActionStat::Reader getSkillStat(size_t i);
   uint32_t afterActionSp(AfterAction after);
+  double afterActionDmg(AfterAction after);
 
   frames_t prevRecoveryFrames(AfterAction prev, Action a);
   frames_t afterStartupFrames(AfterAction prev, Action a, AfterAction after);

@@ -62,19 +62,21 @@ public:
     readConfig();
 
     frames_t frames = 0;
+    double dmg = 0;
     AdventurerState st;
     for (auto a : rotation_) {
       frames_t step_frames;
-      auto mb_st = sim_.applyAction(st, a, &step_frames);
+      double step_dmg;
+      auto mb_st = sim_.applyAction(st, a, &step_frames, &step_dmg);
       frames += step_frames;
+      dmg += step_dmg;
       KJ_ASSERT(!!mb_st);
       st = *mb_st;
       float time = static_cast<float>(frames) / 60;
-      KJ_LOG(INFO, a, frames, time, st);
+      KJ_LOG(INFO, time, a, step_dmg, st);
     }
 
-    std::cout << static_cast<int>(frames) << "\n";
-    std::cout << (static_cast<float>(frames)/60) << "\n";
+    std::cout << dmg << "\n";
 
     return true;
   }

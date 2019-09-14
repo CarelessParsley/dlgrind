@@ -1,5 +1,18 @@
 @0xb227cfade86c9b47;
 
+# Names
+
+enum WeaponName {
+  axe5b1 @0;
+  axe5b2 @1;
+}
+
+enum AdventurerName {
+  erik @0;
+}
+
+# Data
+
 struct TimingStat {
   startup @0 :UInt32;  # frames
   recovery @1 :UInt32;  # frames
@@ -41,24 +54,41 @@ struct WeaponClass {
   wtype @7 :WeaponType;
 }
 
-enum Element {
-  flame @0;
-  water @1;
-  wind @2;
-  light @3;
-  shadow @4;
-}
-
-enum WeaponName {
-  axe5b1 @0;
-  axe5b2 @1;
-}
-
 struct Weapon {
   name @0 :WeaponName;
   wtype @1 :WeaponType;
   s3Stat @2 :ActionStat;
 }
+
+struct Modifiers {
+  # TODO: Maybe the mods are better represented as integers
+  skillDmg @0 :Float64;
+  critRate @1 :Float64;
+  critDmg @2 :Float64;
+  strength @3 :Float64;
+  attackRate @4 :Float64;
+  skillHaste @5 :Float64;
+  fsDmg @6 :Float64;
+}
+
+struct Adventurer {
+  s1Stat @0 :ActionStat;
+  s2Stat @1 :ActionStat;
+  name @2 :AdventurerName;
+  baseStrength @3 :Float64;
+  # Ability modifiers
+  modifiers @4 :Modifiers;
+}
+
+struct Config {
+  adventurer @0 :Adventurer;
+  weapon @1 :Weapon;
+  weaponClass @2 :WeaponClass;
+  # baseAtt @3 :Float32;
+  # allModifiers @4 :Modifiers;
+}
+
+# Internal stuff
 
 enum Action {
   x @0;
@@ -81,20 +111,13 @@ enum AfterAction {
   afterFs @9;
 }
 
-enum AdventurerName {
-  erik @0;
+# Currently unused stuff
+
+enum Element {
+  flame @0;
+  water @1;
+  wind @2;
+  light @3;
+  shadow @4;
 }
 
-struct Adventurer {
-  s1Stat @0 :ActionStat;
-  s2Stat @1 :ActionStat;
-  name @2 :AdventurerName;
-}
-
-struct Config {
-  adventurer @0 :Adventurer;
-  weapon @1 :Weapon;
-  weaponClass @2 :WeaponClass;
-  # baseAtt @3 :Float32;
-  # allModifiers @4 :Modifiers;
-}

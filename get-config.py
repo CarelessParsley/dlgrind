@@ -61,14 +61,8 @@ this.d_slots()
 this.slot_backdoor()
 this.base_att = this.slots.att(globalconf.forte)
 this.slots.oninit(this)
-
-# Check our work
-print(this.base_att)
-# Need to dump these separately, because may need to apply
-# changes to individual brackets from buffs
-print(this.all_modifiers)
-print(this.def_mod())  # Should always be 1.0
-print(this.conf)
+# NB: don't initialize any time zero buffs; the sim
+# will manage that
 
 # Load capnp schema
 schema_capnp = capnp.load(os.path.join(BASE, "dlgrind/schema.capnp"))
@@ -92,6 +86,24 @@ def to_camel_case(snake_str):
 setActionStat(wout.adventurer.s1Stat, 's1')
 setActionStat(wout.adventurer.s2Stat, 's2')
 wout.adventurer.name = to_camel_case(this.__class__.__name__)
+wout.adventurer.baseStrength = int(this.base_att)
+for mod in this.all_modifiers:
+    if mod.mod_type == 'crit':
+        if mod.mod_order == 'chance':
+            wout.adventurer.modifiers.critRate += mod.mod_value
+        elif mod.mod_order == 'damage':
+            wout.adventurer.modifiers.critDmg += mod.mod_value
+        else:
+            assert False, mod.mod_order
+    elif mod.mod_type == 'att':
+        assert mod.mod_order == 'passive'
+        wout.adventurer.modifiers.strength += mod.mod_value
+    elif mod.mod_type == 's':
+        wout.adventurer.modifiers.skillDmg += mod.mod_value
+    elif mod.mod_type == 'fs':
+        wout.adventurer.modifiers.fsDmg += mod.mod_value
+    else:
+        assert False, mod.mod_type
 
 setActionStat(wout.weapon.s3Stat, 's3')
 wout.weapon.wtype = this.slots.w.wt
