@@ -89,18 +89,7 @@ public:
       std::vector<AdventurerState> state_decode;
       {
         auto [ inverse_map, inverse_size ] = computeReachableStates();
-
-        // Number states
-        for (const auto& kv : inverse_map) {
-          state_encode.emplace(kv.first, state_decode.size());
-          state_decode.emplace_back(kv.first);
-        }
-
-        // Number actions
-        for (auto val : magic_enum::enum_values<Action>()) {
-          action_encode.emplace(val, action_decode.size());
-          action_decode.emplace_back(val);
-        }
+        std::tie(state_encode, state_decode, action_encode, action_decode) = numberStatesAndActions(inverse_map);
 
         // Minimize states
         {
@@ -370,6 +359,33 @@ public:
     }
     KJ_LOG(INFO, inverse_map.size(), "initial states");
     return {inverse_map, inverse_size};
+  }
+
+  std::tuple<
+      AdventurerStateMap<state_code_t>,
+      std::vector<AdventurerState>,
+      std::unordered_map<Action, action_code_t>,
+      std::vector<Action>> numberStatesAndActions(
+          const InverseMap& inverse_map) {
+
+    AdventurerStateMap<state_code_t> state_encode;
+    std::vector<AdventurerState> state_decode;
+    std::unordered_map<Action, action_code_t> action_encode;
+    std::vector<Action> action_decode;
+
+    // Number states
+    for (const auto& kv : inverse_map) {
+      state_encode.emplace(kv.first, state_decode.size());
+      state_decode.emplace_back(kv.first);
+    }
+
+    // Number actions
+    for (auto val : magic_enum::enum_values<Action>()) {
+      action_encode.emplace(val, action_decode.size());
+      action_decode.emplace_back(val);
+    }
+
+    return { state_encode, state_decode, action_encode, action_decode };
   }
 
 };
