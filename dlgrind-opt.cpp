@@ -75,15 +75,18 @@ public:
         "Compute optimal rotations for characters in Dragalia Lost")
       .addOptionWithArg({'c', "config"}, KJ_BIND_METHOD(*this, setConfig),
           "<filename>", "Read config from <filename>.")
+      .expectOptionalArg("<frames>", KJ_BIND_METHOD(*this, setFrames))
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
   }
 
+  kj::MainBuilder::Validity setFrames(kj::StringPtr frames) {
+    frames_ = frames.parseAs<uint32_t>();
+    return true;
+  }
+
   kj::MainBuilder::Validity run() {
     readConfig();
-
-    // Make IO faster
-    std::ios_base::sync_with_stdio(false);
 
     capnp::MallocMessageBuilder hopcroft_input_msg;
 
@@ -263,13 +266,13 @@ public:
     //  - Small optimizations
     //    - Compute best as we go (in the main loop), rather
     //      than another single loop at the end
-    for (int f = 1; f < 1800; f++) {
+    for (int f = 1; f < frames_; f++) {
       auto cur_time = std::chrono::high_resolution_clock::now();
       if (cur_time > last_print_time + 1 * std::chrono::seconds(60)) {
         std::cerr << "fpm: " << (f * std::chrono::minutes(1)) / (cur_time - start_time) << "\n";
         last_print_time = cur_time;
       }
-      // #pragma omp parallel for
+      #pragma omp parallel for
       for (int p = 0; p < numPartitions; p++) {
         auto& cur = best_dps[dix(f, p)];
         auto& cur_seq = best_sequence[dix(f, p)];
@@ -335,8 +338,13 @@ public:
       }
     }
 
+    auto cur_time = std::chrono::high_resolution_clock::now();
+    std::cerr << "fpm: " << (frames_ * std::chrono::minutes(1)) / (cur_time - start_time) << "\n";
+
     return true;
   }
+
+private:
 
   // returns inverse_map, inverse_size (number of transitions)
   std::pair<InverseMap, size_t> computeReachableStates() {
@@ -388,8 +396,10 @@ public:
       action_code.decode_.emplace_back(val);
     }
 
-    return { state_code, action_code };
+    return { std::move(state_code), std::move(action_code) };
   }
+
+  frames_t frames_ = 3600;
 
 };
 
