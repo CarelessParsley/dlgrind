@@ -263,13 +263,13 @@ public:
     //  - Small optimizations
     //    - Compute best as we go (in the main loop), rather
     //      than another single loop at the end
-    for (int f = 1; f < 3600; f++) {
+    for (int f = 1; f < 1800; f++) {
       auto cur_time = std::chrono::high_resolution_clock::now();
       if (cur_time > last_print_time + 1 * std::chrono::seconds(60)) {
         std::cerr << "fpm: " << (f * std::chrono::minutes(1)) / (cur_time - start_time) << "\n";
         last_print_time = cur_time;
       }
-      #pragma omp parallel for
+      // #pragma omp parallel for
       for (int p = 0; p < numPartitions; p++) {
         auto& cur = best_dps[dix(f, p)];
         auto& cur_seq = best_sequence[dix(f, p)];
@@ -287,25 +287,27 @@ public:
 
           if (f >= frames) {
             auto z = dix(f - frames, prev_p);
-            auto tmp = best_dps[z] + dmg;
-            if (tmp >= 0 && tmp > cur + EPSILON) {
-              cur = tmp;
-              cur_seq = best_sequence[z];
-              cur_seq.push(a);
-            } else if (tmp >= 0 && tmp > cur - EPSILON) {
-              ActionString tmp_seq = best_sequence[z];
-              tmp_seq.push(a);
-              // The idea here is that there are often moves which
-              // have transpositions (end up with the same dps and
-              // end state); let's define an ordering on our move
-              // set and prefer moves that frontload combos to make
-              // the chosen combos deterministic.  This helps in
-              // testing.
-              if (std::lexicographical_compare(
-                    cur_seq.buffer_.begin(), cur_seq.buffer_.end(),
-                    tmp_seq.buffer_.begin(), tmp_seq.buffer_.end())) {
+            if (best_dps[z] >= 0) {
+              auto tmp = best_dps[z] + dmg;
+              if (tmp >= 0 && tmp > cur + EPSILON) {
                 cur = tmp;
-                cur_seq = std::move(tmp_seq);
+                cur_seq = best_sequence[z];
+                cur_seq.push(a);
+              } else if (tmp >= 0 && tmp > cur - EPSILON) {
+                ActionString tmp_seq = best_sequence[z];
+                tmp_seq.push(a);
+                // The idea here is that there are often moves which
+                // have transpositions (end up with the same dps and
+                // end state); let's define an ordering on our move
+                // set and prefer moves that frontload combos to make
+                // the chosen combos deterministic.  This helps in
+                // testing.
+                if (std::lexicographical_compare(
+                      cur_seq.buffer_.begin(), cur_seq.buffer_.end(),
+                      tmp_seq.buffer_.begin(), tmp_seq.buffer_.end())) {
+                  cur = tmp;
+                  cur_seq = std::move(tmp_seq);
+                }
               }
             }
           }
