@@ -87,23 +87,37 @@ setActionStat(wout.adventurer.s1Stat, 's1')
 setActionStat(wout.adventurer.s2Stat, 's2')
 wout.adventurer.name = to_camel_case(this.__class__.__name__)
 wout.adventurer.baseStrength = int(this.base_att)
+print(this.all_modifiers, file=sys.stderr)
 for mod in this.all_modifiers:
     if mod.mod_type == 'crit':
         if mod.mod_order == 'chance':
             wout.adventurer.modifiers.critRate += mod.mod_value
         elif mod.mod_order == 'damage':
             wout.adventurer.modifiers.critDmg += mod.mod_value
+        elif mod.mod_order == 'ex':
+            wout.adventurer.coabilityModifiers.critRate += mod.mod_value
         else:
-            assert False, mod.mod_order
+            assert False, mod
     elif mod.mod_type == 'att':
-        assert mod.mod_order == 'passive'
-        wout.adventurer.modifiers.strength += mod.mod_value
+        if mod.mod_order == 'killer':
+            # IGNORE!
+            pass
+        elif mod.mod_order == 'ex':
+            wout.adventurer.coabilityModifiers.strength += mod.mod_value
+        else:
+            assert mod.mod_order == 'passive', mod
+            wout.adventurer.modifiers.strength += mod.mod_value
     elif mod.mod_type == 's':
-        wout.adventurer.modifiers.skillDmg += mod.mod_value
+        if mod.mod_order == 'ex':
+            wout.adventurer.coabilityModifiers.skillDmg += mod.mod_value
+        else:
+            assert mod.mod_order == 'passive'
+            wout.adventurer.modifiers.skillDmg += mod.mod_value
     elif mod.mod_type == 'fs':
+        assert mod.mod_order == 'passive'
         wout.adventurer.modifiers.fsDmg += mod.mod_value
     else:
-        assert False, mod.mod_type
+        assert False, mod
 
 setActionStat(wout.weapon.s3Stat, 's3')
 wout.weapon.wtype = this.slots.w.wt

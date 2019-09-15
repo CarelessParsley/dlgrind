@@ -5,10 +5,12 @@
 enum WeaponName {
   axe5b1 @0;
   axe5b2 @1;
+  blade5b1 @2;
 }
 
 enum AdventurerName {
   erik @0;
+  aoi @1;
 }
 
 # Data
@@ -78,14 +80,13 @@ struct Adventurer {
   baseStrength @3 :Float64;
   # Ability modifiers
   modifiers @4 :Modifiers;
+  coabilityModifiers @5 :Modifiers;
 }
 
 struct Config {
   adventurer @0 :Adventurer;
   weapon @1 :Weapon;
   weaponClass @2 :WeaponClass;
-  # baseAtt @3 :Float32;
-  # allModifiers @4 :Modifiers;
 }
 
 # Internal stuff

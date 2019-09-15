@@ -187,20 +187,21 @@ std::optional<AdventurerState> Simulator::applyAction(
     double dmg = 5./3;
     dmg *= config_->getAdventurer().getBaseStrength();
     dmg *= (1. + config_->getAdventurer().getModifiers().getStrength());
-    // TODO: apply strength coab
+    dmg *= (1. + config_->getAdventurer().getCoabilityModifiers().getStrength());
     // strength buffs here:
     // (none)
     dmg *= afterActionDmg(after.afterAction_) / 100.;
     if (skillIndex(a)) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getSkillDmg());
-      // TODO: apply skill dmg coab
+      dmg *= (1. + config_->getAdventurer().getCoabilityModifiers().getSkillDmg());
       // skill dmg buffs here:
       // (none)
     } else if (a == Action::FS) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getFsDmg());
     }
     dmg /= 10.;
-    double crit_rate = config_->getAdventurer().getModifiers().getCritRate();
+    double crit_rate = config_->getAdventurer().getModifiers().getCritRate()
+      + config_->getAdventurer().getCoabilityModifiers().getCritRate();
     double crit_dmg = config_->getAdventurer().getModifiers().getCritDmg() + 0.7;
     // crit buffs here:
     if (config_->getWeapon().getName() == WeaponName::AXE5B1 &&

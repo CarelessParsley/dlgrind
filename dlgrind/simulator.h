@@ -44,6 +44,6 @@ private:
 
   kj::Own<Config::Reader> config_;
 
-  size_t num_skills_ = 2;  // can toggle to two
+  size_t num_skills_ = 3;  // can toggle to two
   frames_t ui_hidden_frames_ = 114;
 };
