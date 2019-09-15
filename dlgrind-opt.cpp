@@ -54,6 +54,8 @@ using state_code_t = uint64_t;
 using action_code_t = uint8_t;
 using partition_t = uint32_t;
 
+using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerState, Action>>>;
+
 class DLGrindOpt : DLGrind {
 public:
   explicit DLGrindOpt(kj::ProcessContext& context)
@@ -86,36 +88,7 @@ public:
       AdventurerStateMap<state_code_t> state_encode;
       std::vector<AdventurerState> state_decode;
       {
-        // Compute reachable states
-        using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerState, Action>>>;
-        InverseMap inverse_map;
-        size_t inverse_size = 0;
-        {
-          AdventurerState init_st;
-          std::vector<AdventurerState> todo{init_st};
-          inverse_map[init_st];
-          while (todo.size()) {
-            auto s = todo.back();
-            // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "loop");
-            //std::cout << kj::str(s).cStr() << "\n";
-            todo.pop_back();
-            auto push = [&](AdventurerState n_s, Action a) {
-              if (inverse_map.count(n_s) == 0) {
-                todo.emplace_back(n_s);
-              }
-              inverse_map[n_s].emplace_back(s, a);
-              inverse_size++;
-            };
-            for (auto a : magic_enum::enum_values<Action>()) {
-              auto mb_n_s = sim_.applyAction(s, a);
-              if (mb_n_s) {
-                push(*mb_n_s, a);
-              }
-            }
-          }
-        }
-
-        KJ_LOG(INFO, inverse_map.size(), "initial states");
+        auto [ inverse_map, inverse_size ] = computeReachableStates();
 
         // Number states
         for (const auto& kv : inverse_map) {
@@ -365,6 +338,40 @@ public:
 
     return true;
   }
+
+  // returns inverse_map, inverse_size (number of transitions)
+  std::pair<InverseMap, size_t> computeReachableStates() {
+    // Compute reachable states
+    InverseMap inverse_map;
+    size_t inverse_size = 0;
+    {
+      AdventurerState init_st;
+      std::vector<AdventurerState> todo{init_st};
+      inverse_map[init_st];
+      while (todo.size()) {
+        auto s = todo.back();
+        // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "loop");
+        //std::cout << kj::str(s).cStr() << "\n";
+        todo.pop_back();
+        auto push = [&](AdventurerState n_s, Action a) {
+          if (inverse_map.count(n_s) == 0) {
+            todo.emplace_back(n_s);
+          }
+          inverse_map[n_s].emplace_back(s, a);
+          inverse_size++;
+        };
+        for (auto a : magic_enum::enum_values<Action>()) {
+          auto mb_n_s = sim_.applyAction(s, a);
+          if (mb_n_s) {
+            push(*mb_n_s, a);
+          }
+        }
+      }
+    }
+    KJ_LOG(INFO, inverse_map.size(), "initial states");
+    return {inverse_map, inverse_size};
+  }
+
 };
 
 KJ_MAIN(DLGrindOpt);
