@@ -56,6 +56,16 @@ using partition_t = uint32_t;
 
 using InverseMap = AdventurerStateMap<std::vector<std::pair<AdventurerState, Action>>>;
 
+struct StateCode {
+  AdventurerStateMap<state_code_t> encode_;
+  std::vector<AdventurerState> decode_;
+};
+
+struct ActionCode {
+  std::unordered_map<Action, action_code_t> encode_;
+  std::vector<Action> decode_;
+};
+
 class DLGrindOpt : DLGrind {
 public:
   explicit DLGrindOpt(kj::ProcessContext& context)
@@ -77,51 +87,49 @@ public:
 
     capnp::MallocMessageBuilder hopcroft_input_msg;
 
-    std::unordered_map<Action, action_code_t> action_encode;
-    std::vector<Action> action_decode;
+    ActionCode action_code;
 
     capnp::MallocMessageBuilder inverse_msg;
     std::vector<AdventurerState> partition_reps;
     uint32_t numPartitions;
     partition_t initialPartition;
     {
-      AdventurerStateMap<state_code_t> state_encode;
-      std::vector<AdventurerState> state_decode;
+      StateCode state_code;
       {
         auto [ inverse_map, inverse_size ] = computeReachableStates();
-        std::tie(state_encode, state_decode, action_encode, action_decode) = numberStatesAndActions(inverse_map);
+        std::tie(state_code, action_code) = numberStatesAndActions(inverse_map);
 
         // Minimize states
         {
           auto hopcroft_input_builder = hopcroft_input_msg.initRoot<HopcroftInput>();
 
-          hopcroft_input_builder.setNumStates(state_decode.size());
-          hopcroft_input_builder.setNumActions(action_decode.size());
+          hopcroft_input_builder.setNumStates(state_code.decode_.size());
+          hopcroft_input_builder.setNumActions(action_code.decode_.size());
 
           {
             auto inverse = hopcroft_input_builder.initInverse();
             auto states = inverse.initStates(inverse_size);
             auto actions = inverse.initActions(inverse_size);
-            auto index = inverse.initIndex(state_decode.size() + 1);
+            auto index = inverse.initIndex(state_code.decode_.size() + 1);
             size_t inverse_index = 0;
-            for (state_code_t i = 0; i < state_decode.size(); i++) {
+            for (state_code_t i = 0; i < state_code.decode_.size(); i++) {
               index.set(i, inverse_index);
-              for (const auto& sa : inverse_map[state_decode[i]]) {
-                state_code_t s_code = state_encode[sa.first];
-                action_code_t a_code = action_encode[sa.second];
+              for (const auto& sa : inverse_map[state_code.decode_[i]]) {
+                state_code_t s_code = state_code.encode_[sa.first];
+                action_code_t a_code = action_code.encode_[sa.second];
                 states.set(inverse_index, s_code);
                 actions.set(inverse_index, a_code);
                 inverse_index++;
               }
             }
             KJ_ASSERT(inverse_index == inverse_size, inverse_index, inverse_size);
-            index.set(state_decode.size(), inverse_index);
+            index.set(state_code.decode_.size(), inverse_index);
           }
 
-          auto initialPartition = hopcroft_input_builder.initInitialPartition(state_decode.size());
+          auto initialPartition = hopcroft_input_builder.initInitialPartition(state_code.decode_.size());
           AdventurerStateMap<partition_t> partition_map;
-          for (state_code_t i = 0; i < state_decode.size(); i++) {
-            AdventurerState s = state_decode[i];
+          for (state_code_t i = 0; i < state_code.decode_.size(); i++) {
+            AdventurerState s = state_code.decode_[i];
             // coarsen the state
             for (size_t i = 0; i < 3; i++) {
               s.sp_[i] = 0;
@@ -149,7 +157,7 @@ public:
       auto hopcroft_output = hopcroft_output_msg.getRoot<HopcroftOutput>().asReader();
       auto partition = hopcroft_output.getPartition();
       numPartitions = hopcroft_output.getNumPartitions();
-      initialPartition = partition[state_encode[AdventurerState()]];
+      initialPartition = partition[state_code.encode_[AdventurerState()]];
 
       // Redo inverse transition table for partitions
       {
@@ -164,9 +172,9 @@ public:
         auto old_index = old_inverse.getIndex();
         size_t inverse_size = 0;
         partition_reps.resize(numPartitions);
-        for (state_code_t s = 0; s < state_decode.size(); s++) {
+        for (state_code_t s = 0; s < state_code.decode_.size(); s++) {
           partition_t p = partition[s];
-          partition_reps[p] = state_decode[s];  // last one wins
+          partition_reps[p] = state_code.decode_[s];  // last one wins
           for (uint32_t i = old_index[s]; i < old_index[s+1]; i++) {
             std::pair<partition_t, action_code_t> pair = {
               partition[old_states[i]],
@@ -209,7 +217,7 @@ public:
     for (partition_t p = 0; p < numPartitions; p++) {
       for (size_t i = inverse_index[p]; i < inverse_index[p+1]; i++) {
         auto prev = partition_reps[inverse_states[i]];
-        auto a = action_decode[inverse_actions[i]];
+        auto a = action_code.decode_[inverse_actions[i]];
         frames_t frames = sim_.computeFrames(prev, a);
         if (frames > max_frames) {
           max_frames = frames + 1;
@@ -270,7 +278,7 @@ public:
         for (int j = inverse_index[p]; j < inverse_index[p+1]; j++) {
           partition_t prev_p = inverse_states[j];
           AdventurerState prev = partition_reps[prev_p];
-          Action a = action_decode[inverse_actions[j]];
+          Action a = action_code.decode_[inverse_actions[j]];
 
           frames_t frames;
           double dmg;
@@ -361,31 +369,24 @@ public:
     return {inverse_map, inverse_size};
   }
 
-  std::tuple<
-      AdventurerStateMap<state_code_t>,
-      std::vector<AdventurerState>,
-      std::unordered_map<Action, action_code_t>,
-      std::vector<Action>> numberStatesAndActions(
-          const InverseMap& inverse_map) {
+  std::pair<StateCode, ActionCode> numberStatesAndActions(const InverseMap& inverse_map) {
 
-    AdventurerStateMap<state_code_t> state_encode;
-    std::vector<AdventurerState> state_decode;
-    std::unordered_map<Action, action_code_t> action_encode;
-    std::vector<Action> action_decode;
+    StateCode state_code;
+    ActionCode action_code;
 
     // Number states
     for (const auto& kv : inverse_map) {
-      state_encode.emplace(kv.first, state_decode.size());
-      state_decode.emplace_back(kv.first);
+      state_code.encode_.emplace(kv.first, state_code.decode_.size());
+      state_code.decode_.emplace_back(kv.first);
     }
 
     // Number actions
     for (auto val : magic_enum::enum_values<Action>()) {
-      action_encode.emplace(val, action_decode.size());
-      action_decode.emplace_back(val);
+      action_code.encode_.emplace(val, action_code.decode_.size());
+      action_code.decode_.emplace_back(val);
     }
 
-    return { state_encode, state_decode, action_encode, action_decode };
+    return { state_code, action_code };
   }
 
 };
