@@ -29,7 +29,6 @@ protected:
     close(fd);
   }
 
-  Config::Reader config_;
   Simulator sim_;
   kj::ProcessContext& context_;
   std::optional<kj::StringPtr> configFile_;

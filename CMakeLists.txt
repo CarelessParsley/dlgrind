@@ -19,6 +19,8 @@ capnp_generate_cpp(CAPNP_SRCS CAPNP_HDRS
   dlgrind/hopcroft.capnp
   )
 
+find_package(OpenMP)
+
 add_library(dlgrind
   dlgrind/hopcroft.cpp
   dlgrind/hopcroft.h
@@ -27,11 +29,13 @@ add_library(dlgrind
   dlgrind/state.cpp
   dlgrind/state.h
   dlgrind/main.h
+  dlgrind/action_string.h
+  dlgrind/action_string.cpp
   magic_enum.h
   ${CAPNP_SRCS}
   ${CAPNP_HDRS}
   )
-target_link_libraries(dlgrind PUBLIC capnp)
+target_link_libraries(dlgrind PUBLIC capnp OpenMP::OpenMP_CXX)
 target_include_directories(
   dlgrind
   PUBLIC

@@ -173,6 +173,7 @@ void hopcroft(HopcroftInput::Reader input, HopcroftOutput::Builder* output) {
   }
 #endif
 
+  output->setNumPartitions(partitions.size());
   auto partition = output->initPartition(numStates);
   for (state_t s = 0; s < numStates; s++) {
     partition.set(s, states[s].partition_);

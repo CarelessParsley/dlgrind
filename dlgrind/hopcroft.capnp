@@ -29,5 +29,6 @@ struct HopcroftInput {
 
 struct HopcroftOutput {
   partition @0 :List(UInt32);
+  numPartitions @1 :UInt32;
 }
 
