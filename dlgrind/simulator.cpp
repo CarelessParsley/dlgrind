@@ -107,6 +107,17 @@ std::optional<AdventurerState> Simulator::applyAction(
 
   frames_t frames = 0;
 
+  // Repeated FS is not allowed
+  // TODO: make this toggleable
+  if (prev.afterAction_ == AfterAction::AFTER_FS && a == Action::FS) {
+    return std::nullopt;
+  }
+
+  // Cancelling staff FS is not allowed (you don't get the hits)
+  if (prev.afterAction_ == AfterAction::AFTER_FS && skillIndex(a)) {
+    return std::nullopt;
+  }
+
   // Wait for recovery to see if we can legally skill
   frames_t prevFrames = prevRecoveryFrames(prev.afterAction_, a);
   after.advanceFrames(prevFrames);
@@ -189,7 +200,12 @@ std::optional<AdventurerState> Simulator::applyAction(
     dmg *= (1. + config_->getAdventurer().getModifiers().getStrength());
     dmg *= (1. + config_->getAdventurer().getCoabilityModifiers().getStrength());
     // strength buffs here:
-    // (none)
+    if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && after.buffFramesLeft_[1] > 0) {
+      dmg *= 1.2;
+    }
+    if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && after.buffFramesLeft_[0] > 0) {
+      dmg *= 1.2;
+    }
     dmg *= afterActionDmg(after.afterAction_) / 100.;
     if (skillIndex(a)) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getSkillDmg());
@@ -216,6 +232,12 @@ std::optional<AdventurerState> Simulator::applyAction(
   // Apply skill effects
   if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
     after.buffFramesLeft_[2] = 20 * 60;
+  }
+  if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && a == Action::S2) {
+    if (after.buffFramesLeft_[1] > 0) {
+      after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
+    }
+    after.buffFramesLeft_[1] = 10 * 60;
   }
 
   if (frames_out) *frames_out = frames;

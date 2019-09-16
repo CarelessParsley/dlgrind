@@ -357,7 +357,7 @@ private:
       inverse_map[init_st];
       while (todo.size()) {
         auto s = todo.back();
-        // KJ_LOG(INFO, s.afterAction_, s.uiHiddenFramesLeft_, s.sp_[0], s.sp_[1], s.sp_[2], "loop");
+        //KJ_LOG(INFO, s, "loop");
         //std::cout << kj::str(s).cStr() << "\n";
         todo.pop_back();
         auto push = [&](AdventurerState n_s, Action a) {
