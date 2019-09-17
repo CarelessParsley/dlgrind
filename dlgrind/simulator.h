@@ -38,11 +38,18 @@ public:
     config_ = std::move(config);
   }
 
+  void setProjectileDelay(frames_t frames) {
+    projectile_delay_ = frames;
+  }
+
 private:
   ActionStat::Reader getComboStat(size_t i);
   ActionStat::Reader getSkillStat(size_t i);
   uint32_t afterActionSp(AfterAction after);
   double afterActionDmg(AfterAction after);
+  frames_t hitDelay(AfterAction after);
+
+  AdventurerState applyHit(AdventurerState, Action, double* dmg_out);
 
   frames_t prevRecoveryFrames(AfterAction prev, Action a);
   frames_t afterStartupFrames(AfterAction prev, Action a, AfterAction after);
@@ -51,4 +58,5 @@ private:
 
   size_t num_skills_ = 3;  // can toggle to two
   frames_t ui_hidden_frames_ = 114;
+  frames_t projectile_delay_ = 0;
 };

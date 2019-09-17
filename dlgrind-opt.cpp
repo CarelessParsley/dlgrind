@@ -77,6 +77,8 @@ public:
           "<filename>", "Read config from <filename>.")
       .addOptionWithArg({"skill-prep"}, KJ_BIND_METHOD(*this, setSkillPrep),
           "<percent>", "Skill prep percentage (e.g., 75).")
+      .addOptionWithArg({"projectile-delay"}, KJ_BIND_METHOD(*this, setProjectileDelay),
+          "<frames>", "Frames of delay behind projectile cast and hit (enables precharge).")
       .expectOptionalArg("<frames>", KJ_BIND_METHOD(*this, setFrames))
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
@@ -89,6 +91,11 @@ public:
 
   kj::MainBuilder::Validity setSkillPrep(kj::StringPtr percentage) {
     skill_prep_ = percentage.parseAs<uint8_t>();
+    return true;
+  }
+
+  kj::MainBuilder::Validity setProjectileDelay(kj::StringPtr frames) {
+    sim_.setProjectileDelay(frames.parseAs<frames_t>());
     return true;
   }
 

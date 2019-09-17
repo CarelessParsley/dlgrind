@@ -112,6 +112,8 @@ double Simulator::afterActionDmg(AfterAction after) {
 std::optional<AdventurerState> Simulator::applyAction(
     AdventurerState prev, Action a, frames_t* frames_out, double* dmg_out) {
 
+  if (dmg_out) *dmg_out = 0;
+
   auto after = prev;
 
   frames_t frames = 0;
@@ -127,8 +129,16 @@ std::optional<AdventurerState> Simulator::applyAction(
     return std::nullopt;
   }
 
-  // Wait for recovery to see if we can legally skill
+  // Apply delayed hits, if applicable
+
+  frames_t hit_delay = hitDelay(prev.afterAction_);
   frames_t prevFrames = prevRecoveryFrames(prev.afterAction_, a);
+
+  if (hit_delay > 0 && hit_delay <= prevFrames) {
+    after = applyHit(after, a, dmg_out);
+  }
+
+  // Wait for recovery to see if we can legally skill
   after.advanceFrames(prevFrames);
   frames += prevFrames;
 
@@ -148,6 +158,10 @@ std::optional<AdventurerState> Simulator::applyAction(
     KJ_ASSERT(after.uiHiddenFramesLeft_ == 0);
     after.uiHiddenFramesLeft_ = ui_hidden_frames_;
     after.sp_[*mb_skill_index] = 0;
+  }
+
+  if (hit_delay > prevFrames) {
+    after = applyHit(after, a, dmg_out);
   }
 
   // Apply state machine change
@@ -191,6 +205,29 @@ std::optional<AdventurerState> Simulator::applyAction(
   after.advanceFrames(afterFrames);
   frames += afterFrames;
 
+  // Not enough memory to handle this
+  // KJ_ASSERT(hit_delay < prevFrames + afterFrames, hit_delay, prevFrames, afterFrames);
+
+  if (hitDelay(after.afterAction_) == 0) {
+    after = applyHit(after, a, dmg_out);
+  }
+
+  // Apply skill effects
+  if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
+    after.buffFramesLeft_[2] = 20 * 60;
+  }
+  if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && a == Action::S2) {
+    if (after.buffFramesLeft_[1] > 0) {
+      after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
+    }
+    after.buffFramesLeft_[1] = 10 * 60;
+  }
+
+  if (frames_out) *frames_out = frames;
+  return after;
+}
+
+AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg_out) {
   // Apply skill SP change
   float haste = config_->getAdventurer().getModifiers().getSkillHaste();
   // skill haste buffs here:
@@ -240,21 +277,9 @@ std::optional<AdventurerState> Simulator::applyAction(
     }
     dmg *= 1 + crit_rate * crit_dmg;
     dmg *= 1.5;
-    if (dmg_out) *dmg_out = dmg;
+    if (dmg_out) *dmg_out += dmg;
   }
 
-  // Apply skill effects
-  if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
-    after.buffFramesLeft_[2] = 20 * 60;
-  }
-  if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && a == Action::S2) {
-    if (after.buffFramesLeft_[1] > 0) {
-      after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
-    }
-    after.buffFramesLeft_[1] = 10 * 60;
-  }
-
-  if (frames_out) *frames_out = frames;
   return after;
 }
 
@@ -267,6 +292,28 @@ AdventurerState Simulator::applyPrep(AdventurerState prev, std::optional<uint8_t
     after.sp_[i] = getSkillStat(i).getSp() * prep / 100;
   }
   return after;
+}
+
+frames_t Simulator::hitDelay(AfterAction after) {
+  switch (after) {
+    case AfterAction::AFTER_C1:
+    case AfterAction::AFTER_C2:
+    case AfterAction::AFTER_C3:
+    case AfterAction::AFTER_C4:
+    case AfterAction::AFTER_C5:
+      switch (config_->getWeapon().getWtype()) {
+        case WeaponType::STAFF:
+        case WeaponType::WAND:
+        case WeaponType::BOW:
+          return projectile_delay_;
+        default:
+          return 0;
+      }
+    // TODO: Handle Bow FS
+    // TODO: Some skills have delays
+    default:
+      return 0;
+  }
 }
 
 // Invariant: action in this state is legal
