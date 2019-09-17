@@ -75,6 +75,8 @@ public:
         "Compute optimal rotations for characters in Dragalia Lost")
       .addOptionWithArg({'c', "config"}, KJ_BIND_METHOD(*this, setConfig),
           "<filename>", "Read config from <filename>.")
+      .addOptionWithArg({"skill-prep"}, KJ_BIND_METHOD(*this, setSkillPrep),
+          "<percent>", "Skill prep percentage (e.g., 75).")
       .expectOptionalArg("<frames>", KJ_BIND_METHOD(*this, setFrames))
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
@@ -85,8 +87,16 @@ public:
     return true;
   }
 
+  kj::MainBuilder::Validity setSkillPrep(kj::StringPtr percentage) {
+    skill_prep_ = percentage.parseAs<uint8_t>();
+    return true;
+  }
+
   kj::MainBuilder::Validity run() {
     readConfig();
+
+    // apply skill prep
+    init_state_ = sim_.applyPrep(init_state_, skill_prep_);
 
     capnp::MallocMessageBuilder hopcroft_input_msg;
 
@@ -160,7 +170,7 @@ public:
       auto hopcroft_output = hopcroft_output_msg.getRoot<HopcroftOutput>().asReader();
       auto partition = hopcroft_output.getPartition();
       numPartitions = hopcroft_output.getNumPartitions();
-      initialPartition = partition[state_code.encode_[AdventurerState()]];
+      initialPartition = partition[state_code.encode_[init_state_]];
 
       // Redo inverse transition table for partitions
       {
@@ -352,9 +362,8 @@ private:
     InverseMap inverse_map;
     size_t inverse_size = 0;
     {
-      AdventurerState init_st;
-      std::vector<AdventurerState> todo{init_st};
-      inverse_map[init_st];
+      std::vector<AdventurerState> todo{init_state_};
+      inverse_map[init_state_];
       while (todo.size()) {
         auto s = todo.back();
         //KJ_LOG(INFO, s, "loop");
@@ -400,6 +409,8 @@ private:
   }
 
   frames_t frames_ = 3600;
+  std::optional<uint8_t> skill_prep_;
+  AdventurerState init_state_;
 
 };
 

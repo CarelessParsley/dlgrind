@@ -118,7 +118,7 @@ for mod in this.all_modifiers:
         wout.adventurer.modifiers.fsDmg += mod.mod_value
     elif mod.mod_type == 'sp':
         assert mod.mod_order == 'passive'
-        pass  # ignore skill prep for now
+        wout.adventurer.modifiers.skillHaste += mod.mod_value
     else:
         assert False, mod
 

@@ -22,6 +22,11 @@ public:
       double* dmg_out = nullptr
       );
 
+  AdventurerState applyPrep(
+      AdventurerState prev,
+      std::optional<uint8_t> prep = std::nullopt // percentage, e.g. 50 or 100
+      );
+
   frames_t computeFrames(AdventurerState prev, Action a) {
     frames_t r;
     auto ok = applyAction(prev, a, &r);

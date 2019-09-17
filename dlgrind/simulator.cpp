@@ -1,5 +1,7 @@
 #include <dlgrind/simulator.h>
 
+#include <cmath>
+
 // Indexed stat retrieval
 
 ActionStat::Reader Simulator::getComboStat(size_t i) {
@@ -47,6 +49,13 @@ static std::optional<size_t> skillIndex(Action a) {
     case Action::S2: return 1;
     case Action::S3: return 2;
     default: return std::nullopt;
+  }
+}
+
+static uint8_t getSkillPrep(AdventurerName name) {
+  switch (name) {
+    case AdventurerName::HEINWALD: return 100;
+    default: return 0;
   }
 }
 
@@ -183,12 +192,17 @@ std::optional<AdventurerState> Simulator::applyAction(
   frames += afterFrames;
 
   // Apply skill SP change
+  float haste = config_->getAdventurer().getModifiers().getSkillHaste();
+  // skill haste buffs here:
+  // (currently none)
   for (size_t i = 0; i < num_skills_; i++) {
-    after.sp_[i] = std::min(
-      // SP is combo dependent, that's why we feed it afterAction
-      after.sp_[i] + afterActionSp(after.afterAction_),
-      getSkillStat(i).getSp()
-    );
+    uint16_t new_sp = after.sp_[i] +
+      static_cast<uint16_t>(ceil(static_cast<float>(afterActionSp(after.afterAction_)) * (1. + haste)));
+    if (new_sp > getSkillStat(i).getSp()) {
+      after.sp_[i] = getSkillStat(i).getSp();
+    } else {
+      after.sp_[i] = new_sp;
+    }
   }
 
   // Compute damage
@@ -241,6 +255,17 @@ std::optional<AdventurerState> Simulator::applyAction(
   }
 
   if (frames_out) *frames_out = frames;
+  return after;
+}
+
+AdventurerState Simulator::applyPrep(AdventurerState prev, std::optional<uint8_t> mb_prep) {
+  AdventurerState after = prev;
+  uint8_t prep = mb_prep.value_or(getSkillPrep(config_->getAdventurer().getName()));
+  KJ_LOG(INFO, prep, "skill prep");
+  for (size_t i = 0; i < num_skills_; i++) {
+    // NB: Rounds down
+    after.sp_[i] = getSkillStat(i).getSp() * prep / 100;
+  }
   return after;
 }
 
