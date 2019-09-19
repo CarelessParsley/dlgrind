@@ -21,6 +21,21 @@ ActionStat::Reader Simulator::getSkillStat(size_t i) {
   }
 }
 
+size_t Simulator::getNumSkills() {
+  if (num_skills_) {
+    return *num_skills_;
+  }
+  switch (config_->getWeapon().getWtype()) {
+    // State space on these is too large to handle S3
+    case WeaponType::BLADE:
+    case WeaponType::SWORD:
+    case WeaponType::WAND:
+      return 2;
+    default:
+      return 3;
+  }
+}
+
 // Selector functions
 
 static std::optional<size_t> afterSkillIndex(AfterAction after) {
@@ -239,7 +254,7 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
   float haste = config_->getAdventurer().getModifiers().getSkillHaste();
   // skill haste buffs here:
   // (currently none)
-  for (size_t i = 0; i < num_skills_; i++) {
+  for (size_t i = 0; i < getNumSkills(); i++) {
     uint16_t new_sp = after.sp_[i] +
       static_cast<uint16_t>(ceil(static_cast<float>(afterActionSp(after.afterAction_)) * (1. + haste)));
     if (new_sp > getSkillStat(i).getSp()) {
@@ -290,10 +305,12 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     }
     dmg *= 1 + crit_rate * crit_dmg;
     dmg *= 1.5;
+    /*
     // ODPS
     if (after.afterAction_ == AfterAction::AFTER_FS) {
       dmg *= 4;
     }
+    */
     if (dmg_out) *dmg_out += dmg;
   }
 
@@ -304,7 +321,7 @@ AdventurerState Simulator::applyPrep(AdventurerState prev, std::optional<uint8_t
   AdventurerState after = prev;
   uint8_t prep = mb_prep.value_or(getSkillPrep(config_->getAdventurer().getName()));
   KJ_LOG(INFO, prep, "skill prep");
-  for (size_t i = 0; i < num_skills_; i++) {
+  for (size_t i = 0; i < getNumSkills(); i++) {
     // NB: Rounds down
     after.sp_[i] = getSkillStat(i).getSp() * prep / 100;
   }

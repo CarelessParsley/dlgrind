@@ -42,9 +42,14 @@ public:
     projectile_delay_ = frames;
   }
 
+  void setNumSkills(size_t num_skills) {
+    num_skills_ = num_skills;
+  }
+
 private:
   ActionStat::Reader getComboStat(size_t i);
   ActionStat::Reader getSkillStat(size_t i);
+  size_t getNumSkills();
   uint32_t afterActionSp(AfterAction after);
   double afterActionDmg(AfterAction after);
   frames_t hitDelay(AfterAction after);
@@ -56,7 +61,7 @@ private:
 
   kj::Own<Config::Reader> config_;
 
-  size_t num_skills_ = 2;  // can toggle to two
+  std::optional<size_t> num_skills_;
   frames_t ui_hidden_frames_ = 114;
-  frames_t projectile_delay_ = 0;
+  frames_t projectile_delay_ = 50;  // default to precharge computation
 };
