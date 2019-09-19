@@ -102,48 +102,45 @@ public:
     // apply skill prep
     init_state_ = sim_.applyPrep(init_state_, skill_prep_);
 
-    capnp::MallocMessageBuilder hopcroft_input_msg;
-
     ActionCode action_code;
 
-    capnp::MallocMessageBuilder inverse_msg;
+    PackedInverse inverse;
     std::vector<AdventurerState> partition_reps;
     uint32_t numPartitions;
     partition_t initialPartition;
     {
       StateCode state_code;
+      HopcroftInput hopcroft_input;
       {
         auto [ inverse_map, inverse_size ] = computeReachableStates();
         std::tie(state_code, action_code) = numberStatesAndActions(inverse_map);
 
         // Minimize states
         {
-          auto hopcroft_input_builder = hopcroft_input_msg.initRoot<HopcroftInput>();
-
-          hopcroft_input_builder.setNumStates(state_code.decode_.size());
-          hopcroft_input_builder.setNumActions(action_code.decode_.size());
+          hopcroft_input.setNumStates(state_code.decode_.size());
+          hopcroft_input.setNumActions(action_code.decode_.size());
 
           {
-            auto inverse = hopcroft_input_builder.initInverse();
+            auto& inverse = hopcroft_input.initInverse();
             auto states = inverse.initStates(inverse_size);
             auto actions = inverse.initActions(inverse_size);
             auto index = inverse.initIndex(state_code.decode_.size() + 1);
             size_t inverse_index = 0;
             for (state_code_t i = 0; i < state_code.decode_.size(); i++) {
-              index.set(i, inverse_index);
+              index[i] = inverse_index;
               for (const auto& sa : inverse_map[state_code.decode_[i]]) {
                 state_code_t s_code = state_code.encode_[sa.first];
                 action_code_t a_code = action_code.encode_[sa.second];
-                states.set(inverse_index, s_code);
-                actions.set(inverse_index, a_code);
+                states[inverse_index] = s_code;
+                actions[inverse_index] = a_code;
                 inverse_index++;
               }
             }
             KJ_ASSERT(inverse_index == inverse_size, inverse_index, inverse_size);
-            index.set(state_code.decode_.size(), inverse_index);
+            index[state_code.decode_.size()] = inverse_index;
           }
 
-          auto initialPartition = hopcroft_input_builder.initInitialPartition(state_code.decode_.size());
+          auto initialPartition = hopcroft_input.initInitialPartition(state_code.decode_.size());
           AdventurerStateMap<partition_t> partition_map;
           for (state_code_t i = 0; i < state_code.decode_.size(); i++) {
             AdventurerState s = state_code.decode_[i];
@@ -160,18 +157,13 @@ public:
             } else {
               v = it->second;
             }
-            initialPartition.set(i, v);
+            initialPartition[i] = v;
           }
           KJ_LOG(INFO, partition_map.size(), "initial number of partitions");
         }
       }
-      auto hopcroft_input = hopcroft_input_msg.getRoot<HopcroftInput>().asReader();
-      capnp::MallocMessageBuilder hopcroft_output_msg;
-      {
-        auto hopcroft_output_builder = hopcroft_output_msg.initRoot<HopcroftOutput>();
-        hopcroft(hopcroft_input, &hopcroft_output_builder);
-      }
-      auto hopcroft_output = hopcroft_output_msg.getRoot<HopcroftOutput>().asReader();
+      HopcroftOutput hopcroft_output;
+      hopcroft(hopcroft_input, &hopcroft_output);
       auto partition = hopcroft_output.getPartition();
       numPartitions = hopcroft_output.getNumPartitions();
       initialPartition = partition[state_code.encode_[init_state_]];
@@ -183,7 +175,7 @@ public:
         // may not be: equivalence is a statement about future
         // evolution, not the past!
         std::unordered_map<partition_t, std::unordered_set<std::pair<partition_t, action_code_t>>> inverse_map;
-        auto old_inverse = hopcroft_input.getInverse();
+        const auto& old_inverse = hopcroft_input.getInverse();
         auto old_states = old_inverse.getStates();
         auto old_actions = old_inverse.getActions();
         auto old_index = old_inverse.getIndex();
@@ -205,26 +197,24 @@ public:
         }
 
         // Pack the map now
-        auto inverse = inverse_msg.initRoot<PackedInverse>();
         auto states = inverse.initStates(inverse_size);
         auto actions = inverse.initActions(inverse_size);
         auto index = inverse.initIndex(numPartitions + 1);
         size_t inverse_index = 0;
         for (partition_t i = 0; i < numPartitions; i++) {
-          index.set(i, inverse_index);
+          index[i] = inverse_index;
           for (const auto& pa : inverse_map[i]) {
-            states.set(inverse_index, pa.first);
-            actions.set(inverse_index, pa.second);
+            states[inverse_index] = pa.first;
+            actions[inverse_index] = pa.second;
             inverse_index++;
           }
         }
         KJ_ASSERT(inverse_index == inverse_size, inverse_index, inverse_size);
         KJ_LOG(INFO, inverse_size, "reduced inverse transition matrix");
-        index.set(numPartitions, inverse_index);
+        index[numPartitions] = inverse_index;
       }
     }
 
-    auto inverse = inverse_msg.getRoot<PackedInverse>().asReader();
     auto inverse_states = inverse.getStates();
     auto inverse_actions = inverse.getActions();
     auto inverse_index = inverse.getIndex();

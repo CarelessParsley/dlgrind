@@ -39,11 +39,11 @@ struct Partition {
   std::unordered_set<state_t> states_;
 };
 
-void hopcroft(HopcroftInput::Reader input, HopcroftOutput::Builder* output) {
+void hopcroft(const HopcroftInput& input, HopcroftOutput* output) {
   auto numStates = input.getNumStates();
   auto numActions = input.getNumActions();
   KJ_LOG(INFO, numStates, numActions);
-  auto inverse = input.getInverse();
+  const auto& inverse = input.getInverse();
   auto inverseStates = inverse.getStates();
   auto inverseActions = inverse.getActions();
   auto inverseIndex = inverse.getIndex();
@@ -176,6 +176,6 @@ void hopcroft(HopcroftInput::Reader input, HopcroftOutput::Builder* output) {
   output->setNumPartitions(partitions.size());
   auto partition = output->initPartition(numStates);
   for (state_t s = 0; s < numStates; s++) {
-    partition.set(s, states[s].partition_);
+    partition[s] = states[s].partition_;
   }
 }
