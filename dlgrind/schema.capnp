@@ -7,12 +7,14 @@ enum WeaponName {
   axe5b2 @1;
   blade5b1 @2;
   staff5b2 @3;
+  wand5b2 @4;
 }
 
 enum AdventurerName {
   erik @0;
   aoi @1;
   heinwald @2;
+  amane @3;
 }
 
 # Data

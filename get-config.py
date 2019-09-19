@@ -19,8 +19,11 @@ sys.path.insert(0, os.path.join(BASE, "dl", "adv"))
 sys.argv = []  # Necessary for core.log
 import core.timeline  # Required! (Must populate core)
 import core.condition  # Required! (Must populate core)
+import core.log
 import core
 import conf as globalconf
+
+core.log.now = core.timeline.now
 
 # Import adventurer module
 search_candidates = [
@@ -101,6 +104,9 @@ for mod in this.all_modifiers:
     elif mod.mod_type == 'att':
         if mod.mod_order == 'killer':
             # IGNORE!
+            pass
+        elif mod.mod_order == 'bk':
+            # Ignoring break punisher`
             pass
         elif mod.mod_order == 'ex':
             wout.adventurer.coabilityModifiers.strength += mod.mod_value

@@ -13,6 +13,16 @@ protected:
     return true;
   }
 
+  kj::MainBuilder::Validity setSkillPrep(kj::StringPtr percentage) {
+    skill_prep_ = percentage.parseAs<uint8_t>();
+    return true;
+  }
+
+  kj::MainBuilder::Validity setProjectileDelay(kj::StringPtr frames) {
+    sim_.setProjectileDelay(frames.parseAs<frames_t>());
+    return true;
+  }
+
   void readConfig() {
     int fd;
     const char* fn;
@@ -32,4 +42,5 @@ protected:
   Simulator sim_;
   kj::ProcessContext& context_;
   std::optional<kj::StringPtr> configFile_;
+  std::optional<uint8_t> skill_prep_;
 };

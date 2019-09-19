@@ -22,6 +22,10 @@ public:
         "Simulate a fixed rotation, computing frame count")
       .addOptionWithArg({'c', "config"}, KJ_BIND_METHOD(*this, setConfig),
           "<filename>", "Read config from <filename>.")
+      .addOptionWithArg({"skill-prep"}, KJ_BIND_METHOD(*this, setSkillPrep),
+          "<percent>", "Skill prep percentage (e.g., 75).")
+      .addOptionWithArg({"projectile-delay"}, KJ_BIND_METHOD(*this, setProjectileDelay),
+          "<frames>", "Frames of delay behind projectile cast and hit (enables precharge).")
       .expectOneOrMoreArgs("<rotation>", KJ_BIND_METHOD(*this, setRotation))
       .callAfterParsing(KJ_BIND_METHOD(*this, run))
       .build();
@@ -64,6 +68,7 @@ public:
     frames_t frames = 0;
     double dmg = 0;
     AdventurerState st;
+    st = sim_.applyPrep(st, skill_prep_);
     for (auto a : rotation_) {
       frames_t step_frames;
       double step_dmg;

@@ -55,6 +55,7 @@ static std::optional<size_t> skillIndex(Action a) {
 static uint8_t getSkillPrep(AdventurerName name) {
   switch (name) {
     case AdventurerName::HEINWALD: return 100;
+    case AdventurerName::AMANE: return 75;
     default: return 0;
   }
 }
@@ -222,6 +223,12 @@ std::optional<AdventurerState> Simulator::applyAction(
     }
     after.buffFramesLeft_[1] = 10 * 60;
   }
+  if (config_->getAdventurer().getName() == AdventurerName::AMANE && a == Action::S2) {
+    if (after.buffFramesLeft_[1] > 0) {
+      after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
+    }
+    after.buffFramesLeft_[1] = 10 * 60;
+  }
 
   if (frames_out) *frames_out = frames;
   return after;
@@ -257,6 +264,12 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && after.buffFramesLeft_[0] > 0) {
       dmg *= 1.2;
     }
+    if (config_->getAdventurer().getName() == AdventurerName::AMANE && after.buffFramesLeft_[1] > 0) {
+      dmg *= 1.15;
+    }
+    if (config_->getAdventurer().getName() == AdventurerName::AMANE && after.buffFramesLeft_[0] > 0) {
+      dmg *= 1.15;
+    }
     dmg *= afterActionDmg(after.afterAction_) / 100.;
     if (skillIndex(a)) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getSkillDmg());
@@ -277,6 +290,10 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     }
     dmg *= 1 + crit_rate * crit_dmg;
     dmg *= 1.5;
+    // ODPS
+    if (after.afterAction_ == AfterAction::AFTER_FS) {
+      dmg *= 4;
+    }
     if (dmg_out) *dmg_out += dmg;
   }
 
@@ -301,15 +318,16 @@ frames_t Simulator::hitDelay(AfterAction after) {
     case AfterAction::AFTER_C3:
     case AfterAction::AFTER_C4:
     case AfterAction::AFTER_C5:
+    case AfterAction::AFTER_FS:
       switch (config_->getWeapon().getWtype()) {
         case WeaponType::STAFF:
         case WeaponType::WAND:
         case WeaponType::BOW:
+          // TODO: Handle Bow FS
           return projectile_delay_;
         default:
           return 0;
       }
-    // TODO: Handle Bow FS
     // TODO: Some skills have delays
     default:
       return 0;

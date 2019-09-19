@@ -89,16 +89,6 @@ public:
     return true;
   }
 
-  kj::MainBuilder::Validity setSkillPrep(kj::StringPtr percentage) {
-    skill_prep_ = percentage.parseAs<uint8_t>();
-    return true;
-  }
-
-  kj::MainBuilder::Validity setProjectileDelay(kj::StringPtr frames) {
-    sim_.setProjectileDelay(frames.parseAs<frames_t>());
-    return true;
-  }
-
   kj::MainBuilder::Validity run() {
     readConfig();
 
@@ -416,7 +406,6 @@ private:
   }
 
   frames_t frames_ = 3600;
-  std::optional<uint8_t> skill_prep_;
   AdventurerState init_state_;
 
 };
