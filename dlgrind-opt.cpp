@@ -147,6 +147,7 @@ public:
             // coarsen the state
             for (size_t i = 0; i < 3; i++) {
               s.sp_[i] = 0;
+              s.energy_ = s.energy_ == 5;
               s.buffFramesLeft_[i] = s.buffFramesLeft_[i] != 0;
             }
             auto it = partition_map.find(s);

@@ -18,6 +18,8 @@ inline frames_t sub_floor_zero(frames_t a, frames_t b) {
 struct AdventurerState {
   AfterAction afterAction_ = AfterAction::AFTER_NOTHING;
   uint8_t uiHiddenFramesLeft_ = 0;
+  uint8_t energy_ = 0;
+  uint8_t skillShift_[2] = {0, 0};
   uint16_t sp_[3] = {0, 0, 0};
   // Convention: usually, skills trigger buffs, so you put
   // the buff for a particular skill in that slot
@@ -36,6 +38,9 @@ struct AdventurerState {
            sp_[0] == other.sp_[0] &&
            sp_[1] == other.sp_[1] &&
            sp_[2] == other.sp_[2] &&
+           energy_ == other.energy_ &&
+           skillShift_[0] == other.skillShift_[0] &&
+           skillShift_[1] == other.skillShift_[1] &&
            buffFramesLeft_[0] == other.buffFramesLeft_[0] &&
            buffFramesLeft_[1] == other.buffFramesLeft_[1] &&
            buffFramesLeft_[2] == other.buffFramesLeft_[2];
@@ -49,6 +54,9 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
       st.sp_[0],
       st.sp_[1],
       st.sp_[2],
+      st.energy_,
+      st.skillShift_[0],
+      st.skillShift_[1],
       st.buffFramesLeft_[0],
       st.buffFramesLeft_[1],
       st.buffFramesLeft_[2]
@@ -56,7 +64,7 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
 }
 
 inline kj::String KJ_STRINGIFY(const AdventurerState& st) {
-  return kj::str("[sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; c=", std::string(magic_enum::enum_name(st.afterAction_)), "; b=", st.buffFramesLeft_[0], ",", st.buffFramesLeft_[1], ",", st.buffFramesLeft_[2], "; ui=", st.uiHiddenFramesLeft_, "]");
+  return kj::str("[sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; c=", std::string(magic_enum::enum_name(st.afterAction_)), "; b=", st.buffFramesLeft_[0], ",", st.buffFramesLeft_[1], ",", st.buffFramesLeft_[2], "; ui=", st.uiHiddenFramesLeft_, "; e=", st.energy_, "; s=", st.skillShift_[0], ",", st.skillShift_[1], "]");
 }
 
 struct AdventurerStateHasher {

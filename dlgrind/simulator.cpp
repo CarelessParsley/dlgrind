@@ -285,7 +285,27 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     if (config_->getAdventurer().getName() == AdventurerName::AMANE && after.buffFramesLeft_[0] > 0) {
       dmg *= 1.15;
     }
-    dmg *= afterActionDmg(after.afterAction_) / 100.;
+    if (config_->getAdventurer().getName() == AdventurerName::ANNELIE && after.buffFramesLeft_[0] > 0) {
+      dmg *= 1.20;
+    }
+    // modifier
+    if (config_->getAdventurer().getName() == AdventurerName::ANNELIE && after.afterAction_ == AfterAction::AFTER_S1) {
+      switch (after.skillShift_[0]) {
+        case 0:
+          dmg *= .1 + 8.14;
+          break;
+        case 1:
+          dmg *= .1 * 2 + 2 * 4.07;
+          break;
+        case 2:
+          dmg *= .1 * 3 + 3 * 3.54;
+          break;
+        default:
+          KJ_ASSERT(0, after.skillShift_[0]);
+      }
+    } else {
+      dmg *= afterActionDmg(after.afterAction_) / 100.;
+    }
     if (skillIndex(a)) {
       dmg *= (1. + config_->getAdventurer().getModifiers().getSkillDmg());
       dmg *= (1. + config_->getAdventurer().getCoabilityModifiers().getSkillDmg());
@@ -303,6 +323,11 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
         after.buffFramesLeft_[2] > 0) {
       crit_dmg += 0.50;
     }
+    // energy
+    if (after.energy_ == 5) {
+      dmg *= 1.5;
+      // don't adjust here, we'll handle below
+    }
     dmg *= 1 + crit_rate * crit_dmg;
     dmg *= 1.5;
     /*
@@ -312,6 +337,37 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     }
     */
     if (dmg_out) *dmg_out += dmg;
+  }
+
+  // Apply skill state change
+  if (config_->getAdventurer().getName() == AdventurerName::ANNELIE) {
+    auto prev_energy = after.energy_;
+    if (after.energy_ == 5) {
+      after.energy_ = 0;
+    } else {
+      if (after.afterAction_ == AfterAction::AFTER_S1) {
+        if (after.skillShift_[0] == 0) {
+          after.energy_ = std::min(after.energy_ + 1, 5);
+        } else if (after.skillShift_[0] == 1) {
+          after.energy_ = std::min(after.energy_ + 2, 5);
+        }
+      } else if (after.afterAction_ == AfterAction::AFTER_S2) {
+        after.energy_ = std::min(after.energy_ + 2, 5);
+      }
+    }
+    if (after.afterAction_ == AfterAction::AFTER_S1) {
+      if (after.skillShift_[0] == 0) {
+        after.skillShift_[0] = 1;
+      } else if (after.skillShift_[0] == 1) {
+        after.skillShift_[0] = 2;
+      } else {
+        after.skillShift_[0] = 0;
+      }
+    }
+    // Energized: Strength +20% for 15s
+    if (after.energy_ == 5 && prev_energy != 5) {
+      after.buffFramesLeft_[0] = 15 * 60;
+    }
   }
 
   return after;
