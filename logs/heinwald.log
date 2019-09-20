@@ -231,3 +231,7 @@ c1 s1  c1 s2  c5 s3  c4 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c2 
 c1 s1  c1 s2  c5 s3  c4 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c4 s1  c4 s3  => 149599 dmg in 3106 frames
 c1 s1  c1 s2  c5 s3  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c1 s3  => 150193 dmg in 3131 frames
 c1 s1  c4 s2  c4 s3  c4 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c4 s1  c4 s3  => 150369 dmg in 3148 frames
+s1  c1 s2  c5 s3  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c4 s1  c4 s3  => 150404 dmg in 3155 frames
+c1 s1  c1 s2  c5 s3  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c2 s3  => 150840 dmg in 3160 frames
+c1 s1  c1 s2  c5 s3  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c2 s3  c5 s1  => 150840 dmg in 3169 frames
+c1 s1  c1 s2  c5 s3  c4 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c5 s1  c5 s2  c4 s1  c5 s3  => 151381 dmg in 3173 frames
