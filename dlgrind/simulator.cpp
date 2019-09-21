@@ -370,6 +370,8 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     }
   }
 
+  // Remove FS buff if necessary
+
   return after;
 }
 

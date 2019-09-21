@@ -9,6 +9,7 @@ enum WeaponName {
   staff5b2 @3;
   wand5b2 @4;
   lance5b1 @5;
+  blade5b2 @6;
 }
 
 enum AdventurerName {
@@ -16,7 +17,8 @@ enum AdventurerName {
   aoi @1;
   heinwald @2;
   amane @3;
-  annelie @4;  # incomplete
+  annelie @4;
+  yachiyo @5;
 }
 
 # Data

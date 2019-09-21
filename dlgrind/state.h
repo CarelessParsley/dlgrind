@@ -22,8 +22,11 @@ struct AdventurerState {
   uint8_t skillShift_[2] = {0, 0};
   uint16_t sp_[3] = {0, 0, 0};
   // Convention: usually, skills trigger buffs, so you put
-  // the buff for a particular skill in that slot
+  // the buff for a particular skill in that slot.  If only
+  // one skill triggers buff, the two slots can be used to
+  // handle overlap
   uint16_t buffFramesLeft_[3] = {0, 0, 0};
+  uint8_t fsBuff_ = 0;
 
   void advanceFrames(frames_t frames) {
     uiHiddenFramesLeft_ = sub_floor_zero(uiHiddenFramesLeft_, frames);
@@ -41,6 +44,7 @@ struct AdventurerState {
            energy_ == other.energy_ &&
            skillShift_[0] == other.skillShift_[0] &&
            skillShift_[1] == other.skillShift_[1] &&
+           fsBuff_ == other.fsBuff_ &&
            buffFramesLeft_[0] == other.buffFramesLeft_[0] &&
            buffFramesLeft_[1] == other.buffFramesLeft_[1] &&
            buffFramesLeft_[2] == other.buffFramesLeft_[2];
@@ -55,6 +59,7 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
       st.sp_[1],
       st.sp_[2],
       st.energy_,
+      st.fsBuff_,
       st.skillShift_[0],
       st.skillShift_[1],
       st.buffFramesLeft_[0],
@@ -64,7 +69,7 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
 }
 
 inline kj::String KJ_STRINGIFY(const AdventurerState& st) {
-  return kj::str("[sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; c=", std::string(magic_enum::enum_name(st.afterAction_)), "; b=", st.buffFramesLeft_[0], ",", st.buffFramesLeft_[1], ",", st.buffFramesLeft_[2], "; ui=", st.uiHiddenFramesLeft_, "; e=", st.energy_, "; s=", st.skillShift_[0], ",", st.skillShift_[1], "]");
+  return kj::str("[sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; c=", std::string(magic_enum::enum_name(st.afterAction_)), "; b=", st.buffFramesLeft_[0], ",", st.buffFramesLeft_[1], ",", st.buffFramesLeft_[2], "; ui=", st.uiHiddenFramesLeft_, "; e=", st.energy_, "; s=", st.skillShift_[0], ",", st.skillShift_[1], ";fs=", st.fsBuff_, "]");
 }
 
 struct AdventurerStateHasher {
