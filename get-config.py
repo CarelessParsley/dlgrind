@@ -68,7 +68,7 @@ this.slots.oninit(this)
 # will manage that
 
 # Load capnp schema
-schema_capnp = capnp.load(os.path.join(BASE, "dlgrind/schema.capnp"))
+schema_capnp = capnp.load(os.path.join(BASE, "src/dlgrind/schema.capnp"))
 
 # Do serialization
 wout = schema_capnp.Config.new_message()
