@@ -78,7 +78,6 @@ public:
       KJ_ASSERT(!!mb_st);
       st = *mb_st;
       float time = static_cast<float>(frames) / 60;
-      // KJ_LOG(INFO, time, a, step_dmg, st);
       std::cerr << time << " " << kj::str(a).cStr() << " " << step_dmg << " " << kj::str(st).cStr() << "\n";
     }
 
