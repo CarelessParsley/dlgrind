@@ -69,7 +69,7 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
 }
 
 inline kj::String KJ_STRINGIFY(const AdventurerState& st) {
-  return kj::str("[sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; c=", std::string(magic_enum::enum_name(st.afterAction_)), "; b=", st.buffFramesLeft_[0], ",", st.buffFramesLeft_[1], ",", st.buffFramesLeft_[2], "; ui=", st.uiHiddenFramesLeft_, "; e=", st.energy_, "; s=", st.skillShift_[0], ",", st.skillShift_[1], ";fs=", st.fsBuff_, "]");
+  return kj::str("[sp=", st.sp_[0], ",", st.sp_[1], ",", st.sp_[2], "; c=", std::string(magic_enum::enum_name(st.afterAction_)), "; b=", st.buffFramesLeft_[0], ",", st.buffFramesLeft_[1], ",", st.buffFramesLeft_[2], "; ui=", st.uiHiddenFramesLeft_, "; e=", st.energy_, "; s=", st.skillShift_[0], ",", st.skillShift_[1], "; fs=", st.fsBuff_, "]");
 }
 
 struct AdventurerStateHasher {
