@@ -54,6 +54,8 @@ private:
   double afterActionDmg(AfterAction after);
   frames_t hitDelay(AfterAction after);
 
+  AdventurerName adventurerName() { return config_->getAdventurer().getName(); }
+
   AdventurerState applyHit(AdventurerState, Action, double* dmg_out);
 
   frames_t prevRecoveryFrames(AfterAction prev, Action a);

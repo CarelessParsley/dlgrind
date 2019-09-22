@@ -27,12 +27,14 @@ struct AdventurerState {
   // handle overlap
   uint16_t buffFramesLeft_[3] = {0, 0, 0};
   uint8_t fsBuff_ = 0;
+  uint16_t afflictionFramesLeft_ = 0;
 
   void advanceFrames(frames_t frames) {
     uiHiddenFramesLeft_ = sub_floor_zero(uiHiddenFramesLeft_, frames);
     for (size_t i = 0; i < 3; i++) {
       buffFramesLeft_[i] = sub_floor_zero(buffFramesLeft_[i], frames);
     }
+    afflictionFramesLeft_ = sub_floor_zero(afflictionFramesLeft_, frames);
   }
 
   bool operator==(const AdventurerState& other) const {
@@ -45,6 +47,7 @@ struct AdventurerState {
            skillShift_[0] == other.skillShift_[0] &&
            skillShift_[1] == other.skillShift_[1] &&
            fsBuff_ == other.fsBuff_ &&
+           afflictionFramesLeft_ == other.afflictionFramesLeft_ &&
            buffFramesLeft_[0] == other.buffFramesLeft_[0] &&
            buffFramesLeft_[1] == other.buffFramesLeft_[1] &&
            buffFramesLeft_[2] == other.buffFramesLeft_[2];
@@ -62,6 +65,7 @@ inline uint KJ_HASHCODE(const AdventurerState& st) {
       st.fsBuff_,
       st.skillShift_[0],
       st.skillShift_[1],
+      st.afflictionFramesLeft_,
       st.buffFramesLeft_[0],
       st.buffFramesLeft_[1],
       st.buffFramesLeft_[2]

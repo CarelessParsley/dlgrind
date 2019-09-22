@@ -3,7 +3,8 @@ all: \
   logs/erik.log \
   logs/amane.log \
   logs/heinwald.log \
-  logs/annelie.log
+  logs/annelie.log \
+  logs/yachiyo.log
 
 clean:
 	rm logs/*.log

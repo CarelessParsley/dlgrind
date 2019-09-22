@@ -4,6 +4,15 @@
 
 // Indexed stat retrieval
 
+// Uses up both buff slots
+AdventurerState buffAllowDoubleStack(AdventurerState after, frames_t buff_frames) {
+  if (after.buffFramesLeft_[1] > 0) {
+    after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
+  }
+  after.buffFramesLeft_[1] = buff_frames;
+  return after;
+};
+
 ActionStat::Reader Simulator::getComboStat(size_t i) {
   return config_->getWeaponClass().getXStats()[i];
 }
@@ -229,20 +238,38 @@ std::optional<AdventurerState> Simulator::applyAction(
   }
 
   // Apply skill effects
-  if (config_->getWeapon().getName() == WeaponName::AXE5B1 && a == Action::S3) {
-    after.buffFramesLeft_[2] = 20 * 60;
-  }
-  if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && a == Action::S2) {
-    if (after.buffFramesLeft_[1] > 0) {
-      after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
-    }
-    after.buffFramesLeft_[1] = 10 * 60;
-  }
-  if (config_->getAdventurer().getName() == AdventurerName::AMANE && a == Action::S2) {
-    if (after.buffFramesLeft_[1] > 0) {
-      after.buffFramesLeft_[0] = after.buffFramesLeft_[1];
-    }
-    after.buffFramesLeft_[1] = 10 * 60;
+  switch (a) {
+    case Action::S1:
+      switch (adventurerName()) {
+        case AdventurerName::YACHIYO:
+          break;
+        default:
+          break;
+      }
+      break;
+    case Action::S2:
+      switch (adventurerName()) {
+        case AdventurerName::HEINWALD:
+        case AdventurerName::AMANE:
+          after = buffAllowDoubleStack(after, 10 * 60);
+          break;
+        case AdventurerName::YACHIYO:
+          after.fsBuff_ = 1;
+        default:
+          break;
+      }
+      break;
+    case Action::S3:
+      switch (config_->getWeapon().getName()) {
+        case WeaponName::AXE5B1:
+          after.buffFramesLeft_[2] = 20 * 60;
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
   }
 
   if (frames_out) *frames_out = frames;
@@ -273,23 +300,23 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     dmg *= (1. + config_->getAdventurer().getModifiers().getStrength());
     dmg *= (1. + config_->getAdventurer().getCoabilityModifiers().getStrength());
     // strength buffs here:
-    if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && after.buffFramesLeft_[1] > 0) {
+    if (adventurerName() == AdventurerName::HEINWALD && after.buffFramesLeft_[1] > 0) {
       dmg *= 1.2;
     }
-    if (config_->getAdventurer().getName() == AdventurerName::HEINWALD && after.buffFramesLeft_[0] > 0) {
+    if (adventurerName() == AdventurerName::HEINWALD && after.buffFramesLeft_[0] > 0) {
       dmg *= 1.2;
     }
-    if (config_->getAdventurer().getName() == AdventurerName::AMANE && after.buffFramesLeft_[1] > 0) {
+    if (adventurerName() == AdventurerName::AMANE && after.buffFramesLeft_[1] > 0) {
       dmg *= 1.15;
     }
-    if (config_->getAdventurer().getName() == AdventurerName::AMANE && after.buffFramesLeft_[0] > 0) {
+    if (adventurerName() == AdventurerName::AMANE && after.buffFramesLeft_[0] > 0) {
       dmg *= 1.15;
     }
-    if (config_->getAdventurer().getName() == AdventurerName::ANNELIE && after.buffFramesLeft_[0] > 0) {
+    if (adventurerName() == AdventurerName::ANNELIE && after.buffFramesLeft_[0] > 0) {
       dmg *= 1.20;
     }
     // modifier
-    if (config_->getAdventurer().getName() == AdventurerName::ANNELIE && after.afterAction_ == AfterAction::AFTER_S1) {
+    if (adventurerName() == AdventurerName::ANNELIE && after.afterAction_ == AfterAction::AFTER_S1) {
       switch (after.skillShift_[0]) {
         case 0:
           dmg *= .1 + 8.14;
@@ -303,6 +330,12 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
         default:
           KJ_ASSERT(0, after.skillShift_[0]);
       }
+    } else if (adventurerName() == AdventurerName::YACHIYO && after.afterAction_ == AfterAction::AFTER_FS && after.fsBuff_) {
+      dmg *= 7.82;
+    } else if (adventurerName() == AdventurerName::YACHIYO && after.afterAction_ == AfterAction::AFTER_S1 && after.afflictionFramesLeft_ == 0) {
+      // TODO: Assume para procs on first hit (then you get paralysis
+      // buff)
+      dmg *= 4.32 * 2;
     } else {
       dmg *= afterActionDmg(after.afterAction_) / 100.;
     }
@@ -323,6 +356,10 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
         after.buffFramesLeft_[2] > 0) {
       crit_dmg += 0.50;
     }
+    // punisher
+    if (adventurerName() == AdventurerName::YACHIYO && after.afflictionFramesLeft_ > 0) {
+      dmg *= 1.2;  // paralyzed punisher
+    }
     // energy
     if (after.energy_ == 5) {
       dmg *= 1.5;
@@ -333,6 +370,7 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
     /*
     // ODPS
     if (after.afterAction_ == AfterAction::AFTER_FS) {
+      // NB: Need to handle Yachiyo adjustment here
       dmg *= 4;
     }
     */
@@ -340,44 +378,58 @@ AdventurerState Simulator::applyHit(AdventurerState after, Action a, double* dmg
   }
 
   // Apply skill state change
-  if (config_->getAdventurer().getName() == AdventurerName::ANNELIE) {
-    auto prev_energy = after.energy_;
-    if (after.energy_ == 5) {
-      after.energy_ = 0;
-    } else {
-      if (after.afterAction_ == AfterAction::AFTER_S1) {
-        if (after.skillShift_[0] == 0) {
-          after.energy_ = std::min(after.energy_ + 1, 5);
-        } else if (after.skillShift_[0] == 1) {
-          after.energy_ = std::min(after.energy_ + 2, 5);
+  switch (adventurerName()) {
+    case AdventurerName::ANNELIE:
+      {
+        auto prev_energy = after.energy_;
+        if (after.energy_ == 5) {
+          after.energy_ = 0;
+        } else {
+          if (after.afterAction_ == AfterAction::AFTER_S1) {
+            if (after.skillShift_[0] == 0) {
+              after.energy_ = std::min(after.energy_ + 1, 5);
+            } else if (after.skillShift_[0] == 1) {
+              after.energy_ = std::min(after.energy_ + 2, 5);
+            }
+          } else if (after.afterAction_ == AfterAction::AFTER_S2) {
+            after.energy_ = std::min(after.energy_ + 2, 5);
+          }
         }
-      } else if (after.afterAction_ == AfterAction::AFTER_S2) {
-        after.energy_ = std::min(after.energy_ + 2, 5);
+        if (after.afterAction_ == AfterAction::AFTER_S1) {
+          if (after.skillShift_[0] == 0) {
+            after.skillShift_[0] = 1;
+          } else if (after.skillShift_[0] == 1) {
+            after.skillShift_[0] = 2;
+          } else {
+            after.skillShift_[0] = 0;
+          }
+        }
+        // Energized: Strength +20% for 15s
+        if (after.energy_ == 5 && prev_energy != 5) {
+          after.buffFramesLeft_[0] = 15 * 60;
+        }
       }
-    }
-    if (after.afterAction_ == AfterAction::AFTER_S1) {
-      if (after.skillShift_[0] == 0) {
-        after.skillShift_[0] = 1;
-      } else if (after.skillShift_[0] == 1) {
-        after.skillShift_[0] = 2;
-      } else {
-        after.skillShift_[0] = 0;
-      }
-    }
-    // Energized: Strength +20% for 15s
-    if (after.energy_ == 5 && prev_energy != 5) {
-      after.buffFramesLeft_[0] = 15 * 60;
-    }
+      break;
+    case AdventurerName::YACHIYO:
+      // NB: Assuming that the 5s is never relevant
+      after = buffAllowDoubleStack(after, 10 * 60);
+      after.afflictionFramesLeft_ = 13 * 60;
+      break;
+    default:
+      break;
   }
 
   // Remove FS buff if necessary
+  if (after.afterAction_ == AfterAction::AFTER_FS) {
+    after.fsBuff_ = 0;
+  }
 
   return after;
 }
 
 AdventurerState Simulator::applyPrep(AdventurerState prev, std::optional<uint8_t> mb_prep) {
   AdventurerState after = prev;
-  uint8_t prep = mb_prep.value_or(getSkillPrep(config_->getAdventurer().getName()));
+  uint8_t prep = mb_prep.value_or(getSkillPrep(adventurerName()));
   KJ_LOG(INFO, prep, "skill prep");
   for (size_t i = 0; i < getNumSkills(); i++) {
     // NB: Rounds down
